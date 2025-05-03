@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, ChevronRight } from 'lucide-react';
 import { learningCards, getCategoryIcon } from '../utils/learningCards';
-import ChatInterface from './ChatInterface';
+import ChatInterface from './chatInterface';
 import Syllabus from './Syllabus'; // Import the new Syllabus component
 
 const LearningModule = () => {

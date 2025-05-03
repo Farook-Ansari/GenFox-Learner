@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, BookOpen, Award, ChevronDown, ChevronUp, Send, Smile, FileText, Youtube, Github, X, UploadCloud } from 'lucide-react';
-import ChatInterface from './ChatInterface'; // Import the ChatInterface component
+import ChatInterface from './chatInterface'; // Import the ChatInterface component
 
 const Syllabus = ({ category, categoryIcon, categoryColor, onBackClick }) => {
   // State to track which modules are expanded
