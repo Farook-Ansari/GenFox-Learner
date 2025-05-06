@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Search, ChevronRight, Clock, BookOpen, MoreHorizontal } from 'lucide-react';
+import { Search, ChevronRight, Clock, BookOpen, MoreHorizontal, Send } from 'lucide-react';
 import { learningCards, getCategoryIcon } from '../utils/learningCards';
 
 const DashboardView = () => {
@@ -32,18 +32,15 @@ const DashboardView = () => {
     setSearchQuery(question);
   };
 
-  // Filter cards by search query only
-  const filteredCards = learningCards.filter(card => {
-    return card.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-           card.description.toLowerCase().includes(searchQuery.toLowerCase());
-  });
+  // Always show all cards regardless of search query
+  const filteredCards = learningCards;
 
   return (
     <div className="flex-1 bg-slate-50 p-6 overflow-y-auto">
-      {/* Decorative floating elements */}
-      <div className="fixed top-20 left-20 w-64 h-64 bg-blue-100 rounded-full opacity-30 blur-3xl animate-pulse"></div>
-      <div className="fixed bottom-20 right-40 w-80 h-80 bg-indigo-100 rounded-full opacity-30 blur-3xl animate-pulse" ></div>
-      <div className="fixed top-1/2 right-1/4 w-40 h-40 bg-purple-100 rounded-full opacity-20 blur-3xl animate-pulse" ></div>
+      {/* Decorative floating elements - using more neutral tones */}
+      <div className="fixed top-20 left-20 w-64 h-64 bg-slate-100 rounded-full opacity-30 blur-3xl animate-pulse"></div>
+      <div className="fixed bottom-20 right-40 w-80 h-80 bg-slate-100 rounded-full opacity-30 blur-3xl animate-pulse" ></div>
+      <div className="fixed top-1/2 right-1/4 w-40 h-40 bg-slate-100 rounded-full opacity-20 blur-3xl animate-pulse" ></div>
       
       {/* Header with larger centered title */}
       <div className="text-center mb-12 mt-16 relative z-10">
@@ -55,38 +52,38 @@ const DashboardView = () => {
         </p>
       </div>
 
-      {/* Quick questions buttons - NEW ADDITION */}
+      {/* Quick questions buttons - with neutral colors */}
       <div className="max-w-3xl mx-auto mb-6 flex flex-wrap items-center justify-center gap-3 animate-fadeIn">
         <button 
           onClick={() => handleQuestionClick("Explain AI")}
-          className="px-5 py-2 rounded-full text-sm font-medium bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-100 
+          className="px-5 py-2 rounded-full text-sm font-medium bg-gradient-to-r from-slate-200/50 to-slate-300/50 border border-slate-200 
                     text-slate-700 hover:from-blue-500/20 hover:to-indigo-500/20 hover:shadow-md transition-all duration-300 hover:scale-105"
         >
           1. Explain AI
         </button>
         <button 
           onClick={() => handleQuestionClick("What is Matrix")}
-          className="px-5 py-2 rounded-full text-sm font-medium bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-100 
+          className="px-5 py-2 rounded-full text-sm font-medium bg-gradient-to-r from-slate-200/50 to-slate-300/50 border border-slate-200 
                     text-slate-700 hover:from-blue-500/20 hover:to-indigo-500/20 hover:shadow-md transition-all duration-300 hover:scale-105"
         >
           2. What is Matrix
         </button>
         <button 
           onClick={() => handleQuestionClick("Explain Thermodynamics")}
-          className="px-5 py-2 rounded-full text-sm font-medium bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-100 
+          className="px-5 py-2 rounded-full text-sm font-medium bg-gradient-to-r from-slate-200/50 to-slate-300/50 border border-slate-200 
                     text-slate-700 hover:from-blue-500/20 hover:to-indigo-500/20 hover:shadow-md transition-all duration-300 hover:scale-105"
         >
           3. Explain Thermodynamics
         </button>
       </div>
 
-      {/* Search input with floating design */}
+      {/* Search input with neutral colors */}
       <div className="max-w-3xl mx-auto mb-12 flex items-center justify-center animate-fadeIn" >
         <div className="relative flex items-center w-full">
           <input
             type="text"
-            className="w-full py-4 px-6 pl-12 rounded-full bg-white border border-blue-100 
-                      focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-transparent 
+            className="w-full py-4 px-6 pl-12 rounded-full bg-white border border-slate-200 
+                      focus:outline-none focus:ring-2 focus:ring-slate-200 focus:border-transparent 
                       text-slate-700 placeholder-slate-400 text-lg shadow-lg transform transition-all 
                       duration-300 hover:shadow-xl"
             placeholder="Type or share a file to start..."
@@ -98,9 +95,9 @@ const DashboardView = () => {
           </div>
         </div>
         <button className="ml-4 p-4 rounded-full bg-white text-slate-500 shadow-lg 
-                          hover:bg-blue-50 hover:text-blue-600 transition-all duration-300 
+                          hover:bg-slate-50 hover:text-slate-700 transition-all duration-300 
                           hover:shadow-xl transform hover:scale-105">
-          <Download size={20} />
+          <Send size={20} />
         </button>
       </div>
 
@@ -143,7 +140,8 @@ const DashboardView = () => {
         </div>
       </div>
 
-      {/* Learning cards grid - COMPLETELY REDESIGNED */}
+
+      {/* Learning cards grid - matching LearningModule neutral style */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
         {filteredCards.map((card) => {
           const progress = getCardProgress(card.id);
@@ -157,15 +155,17 @@ const DashboardView = () => {
                           ${isAnimated ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
               style={{ transitionDelay: `${(card.id % 10) * 0.1}s` }}
             >
-              {/* Glass effect background with gradient */}
-              <div className="absolute inset-0 bg-gradient-to-br from-white to-white/90 rounded-2xl shadow-lg backdrop-blur-sm
-                              group-hover:shadow-xl transition-all duration-300 border border-white/50"></div>
+              {/* Enhanced background with subtle neutral highlight - MATCHING LEARNING MODULE */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white to-slate-50/90 rounded-2xl shadow-md backdrop-blur-sm
+                              border-l-4 border-t border-r border-b border-l-slate-200 border-white/50
+                              group-hover:shadow-xl transition-all duration-300"></div>
               
               {/* Card top section with image/gradient */}
               <div className="relative">
                 <div className="h-40 overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 to-indigo-500/10 
-                                 group-hover:from-blue-400/20 group-hover:to-indigo-500/20 transition-all duration-500"></div>
+                  {/* Base gradient - subtle neutral for non-hover state - MATCHING LEARNING MODULE */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-slate-100/40 to-slate-200/30 
+                                group-hover:from-blue-400/20 group-hover:to-indigo-500/20 transition-all duration-500"></div>
                   
                   {/* Abstract pattern overlay */}
                   <div className="absolute inset-0 opacity-10 overflow-hidden">
@@ -175,15 +175,15 @@ const DashboardView = () => {
                           <path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" strokeWidth="0.5" />
                         </pattern>
                       </defs>
-                      <rect width="100%" height="100%" fill={`url(#grid-${card.id})`} className="text-blue-500" />
+                      <rect width="100%" height="100%" fill={`url(#grid-${card.id})`} className="text-slate-500" />
                     </svg>
                   </div>
                   
-                  {/* Floating 3D icon */}
+                  {/* Floating 3D icon - MATCHING LEARNING MODULE */}
                   <div className="absolute top-4 right-4 w-16 h-16 flex items-center justify-center">
-                    <div className="relative w-12 h-12 rounded-lg bg-gradient-to-br from-blue-100 to-blue-50
-                                   shadow-lg transform group-hover:rotate-12 transition-all duration-500">
-                      <div className="absolute inset-0 flex items-center justify-center text-blue-500">
+                    <div className="relative w-12 h-12 rounded-lg bg-gradient-to-br from-slate-50 to-white
+                                 shadow-lg transform group-hover:rotate-12 transition-all duration-500">
+                      <div className="absolute inset-0 flex items-center justify-center text-slate-700">
                         {getCategoryIcon(card.category)}
                       </div>
                     </div>
@@ -192,14 +192,9 @@ const DashboardView = () => {
                   {/* Category badge */}
                   <div className="absolute top-4 left-4">
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium 
-                                      bg-white/80 backdrop-blur-sm ${card.iconColor}`}>
+                                    bg-white/90 backdrop-blur-sm shadow-sm ${card.iconColor}`}>
                       {card.category}
                     </span>
-                  </div>
-                  
-                  {/* Time estimate */}
-                  <div className="absolute bottom-4 left-4 flex items-center space-x-1 text-xs text-slate-600 bg-white/80 backdrop-blur-sm
-                                  px-2 py-1 rounded-full">
                   </div>
                 </div>
               </div>
@@ -216,39 +211,40 @@ const DashboardView = () => {
                     <span>{Math.floor(Math.random() * 10) + 1} modules</span>
                   </div>
                   
-                  <button className="text-blue-600 hover:text-blue-800 transition-colors">
+                  <button className="text-slate-500 hover:text-slate-700 transition-colors">
                     <MoreHorizontal size={18} />
                   </button>
                 </div>
                 
-                {/* Progress section */}
+                {/* Progress section with neutral colors */}
                 <div className="relative mt-4 pt-4 border-t border-slate-100">
                   <div className="flex justify-between items-center text-xs mb-2">
                     <span className="font-medium text-slate-700">Course Progress</span>
-                    <span className="font-medium text-blue-600">{progress}%</span>
+                    <span className="font-medium text-slate-700">{progress}%</span>
                   </div>
                   
-                  {/* Animated progress bar */}
+                  {/* Animated progress bar with neutral colors */}
                   <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                     <div 
                       className="h-full rounded-full transition-all duration-1000 ease-out relative
-                                group-hover:shadow-sm overflow-hidden"
+                              group-hover:shadow-sm overflow-hidden"
                       style={{ 
                         width: `${progress}%`,
-                        background: 'linear-gradient(90deg, #3B82F6, #6366F1)'
+                        background: 'linear-gradient(90deg,rgb(35, 127, 255),rgb(118, 173, 255))'
                       }}
                     >
                       {/* Animated shine effect */}
                       <div className="absolute inset-0 w-full bg-gradient-to-r from-transparent via-white/30 to-transparent 
-                                      -translate-x-full group-hover:translate-x-full transition-all duration-1000"></div>
+                                    -translate-x-full group-hover:translate-x-full transition-all duration-1000"></div>
                     </div>
                   </div>
                   
-                  {/* Action button */}
-                  <button className="mt-5 w-full py-2.5 px-4 rounded-lg font-medium text-sm
-                                     relative overflow-hidden group-hover:text-white transition-colors duration-300">
+                  {/* Enhanced button with subtle neutral gradient - MATCHING LEARNING MODULE */}
+                  <button className="mt-5 w-full py-2.5 px-4 rounded-lg font-medium text-sm text-slate-700
+                                   border border-slate-200 bg-slate-50/50
+                                   relative overflow-hidden group-hover:text-white transition-colors duration-300">
                     <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-blue-500 to-indigo-500 
-                                  rounded-lg -translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                                rounded-lg -translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
                     <span className="relative flex items-center justify-center">
                       Continue learning <ChevronRight size={16} className="ml-1" />
                     </span>
@@ -256,9 +252,14 @@ const DashboardView = () => {
                 </div>
               </div>
               
-              {/* Interactive hover effect overlay */}
-              <div className="absolute inset-0 border-2 border-transparent group-hover:border-blue-400/20 
-                              rounded-2xl transition-all duration-300 pointer-events-none"></div>
+              {/* Enhanced interactive glow effect with neutral colors - MATCHING LEARNING MODULE */}
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-200/0 to-slate-300/0 
+                            group-hover:from-blue-400/5 group-hover:to-indigo-500/5 
+                            rounded-2xl transition-all duration-300 pointer-events-none"></div>
+              
+              {/* Subtle shadow highlight along bottom with neutral colors - MATCHING LEARNING MODULE */}
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-slate-200/40 to-slate-300/40 
+                           group-hover:from-blue-400/60 group-hover:to-indigo-500/60 transition-all duration-300"></div>
             </div>
           );
         })}

@@ -1,19 +1,33 @@
-import React, { useState, useRef, useEffect } from 'react'; 
+import React, { useState, useRef, useEffect } from 'react';
 import { Home, Book, Calendar, MessageSquare, Settings, LogOut, ChevronLeft, ChevronRight, Plus, X, FileText, ChevronDown, MoreHorizontal, Edit2, Trash2 } from 'lucide-react';
 
-const Sidebar = ({ onNavItemClick }) => {
+const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialProjects = [] }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeItem, setActiveItem] = useState('dashboard');
   const [activeProject, setActiveProject] = useState(null);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
-  const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState(initialProjects);
   const [expandedItems, setExpandedItems] = useState({ schedule: false });
   const [editingProject, setEditingProject] = useState(null);
   const [showActionsForProject, setShowActionsForProject] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   
   const actionsMenuRef = useRef(null);
+  
+  // Sync projects with parent component when they change
+  useEffect(() => {
+    if (onProjectsUpdated && projects !== initialProjects) {
+      onProjectsUpdated(projects);
+    }
+  }, [projects]);
+
+  // Initialize from props when they change
+  useEffect(() => {
+    if (initialProjects.length && projects.length === 0) {
+      setProjects(initialProjects);
+    }
+  }, [initialProjects]);
   
   // Close actions menu when clicking outside
   useEffect(() => {
@@ -83,9 +97,10 @@ const Sidebar = ({ onNavItemClick }) => {
     if (newProjectName.trim()) {
       if (isEditing && editingProject) {
         // Update existing project
-        setProjects(projects.map(p => 
+        const updatedProjects = projects.map(p => 
           p.id === editingProject ? { ...p, name: newProjectName } : p
-        ));
+        );
+        setProjects(updatedProjects);
       } else {
         // Create new project
         const newProject = {
@@ -93,7 +108,13 @@ const Sidebar = ({ onNavItemClick }) => {
           name: newProjectName
         };
         
-        setProjects([...projects, newProject]);
+        const updatedProjects = [...projects, newProject];
+        setProjects(updatedProjects);
+        
+        // Notify parent component
+        if (onProjectAdded) {
+          onProjectAdded(newProject);
+        }
         
         // Auto-expand the Study Resources section
         setExpandedItems(prev => ({
@@ -129,7 +150,9 @@ const Sidebar = ({ onNavItemClick }) => {
   
   const deleteProject = (e, projectId) => {
     e.stopPropagation();
-    setProjects(projects.filter(p => p.id !== projectId));
+    const updatedProjects = projects.filter(p => p.id !== projectId);
+    setProjects(updatedProjects);
+    
     if (activeProject === projectId) {
       setActiveProject(null);
       setActiveItem('schedule');
@@ -145,7 +168,7 @@ const Sidebar = ({ onNavItemClick }) => {
         }`}
       >
         {/* Logo and Title with fluid design */}
-        <div className="p-4 flex items-center justify-between rounded-t-xl bg-blue-50">
+        <div className="p-4 flex items-center justify-between rounded-t-xl bg-blue-50 relative">
           <div className="flex items-center space-x-3">
             <div className="h-10 w-10 rounded-lg bg-indigo-500 flex items-center justify-center flex-shrink-0 shadow-sm">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -158,7 +181,7 @@ const Sidebar = ({ onNavItemClick }) => {
           </div>
           <button
             onClick={toggleSidebar}
-            className="text-slate-500 hover:bg-blue-100 p-2 rounded-full transition-all duration-200 hover:scale-110"
+            className="text-slate-500 hover:bg-blue-100 p-1 rounded-full transition-all duration-200 hover:scale-110 cursor-pointer relative z-10"
           >
             {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
@@ -169,7 +192,7 @@ const Sidebar = ({ onNavItemClick }) => {
           {navItems.map((item) => (
             <React.Fragment key={item.id}>
               <div
-                className={`flex items-center px-4 py-3 my-1 cursor-pointer transition-all duration-200 rounded-xl
+                className={`flex items-center px-4 py-3 my-1 cursor-pointer transition-all duration-200 rounded-xl relative
                   ${
                     activeItem === item.id && !activeProject
                       ? 'bg-blue-50 text-indigo-600 shadow-sm transform translate-x-1'
@@ -185,13 +208,13 @@ const Sidebar = ({ onNavItemClick }) => {
                     <span className={`font-medium ml-3 ${activeItem === item.id && !activeProject ? 'font-semibold' : ''}`}>{item.label}</span>
                     <div className="flex items-center">
                       {item.hasSubItems && (
-                        <button className="p-1 text-slate-500 transition-transform duration-200" style={{ transform: expandedItems[item.id] ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                        <button className="p-1 text-slate-500 transition-transform duration-200 cursor-pointer" style={{ transform: expandedItems[item.id] ? 'rotate(180deg)' : 'rotate(0deg)' }}>
                           <ChevronDown size={16} />
                         </button>
                       )}
                       {item.hasAction && (
                         <button 
-                          className="p-1 hover:bg-blue-100 rounded-full text-slate-500 hover:text-indigo-600 transition-colors ml-1"
+                          className="p-1 hover:bg-blue-100 rounded-full text-slate-500 hover:text-indigo-600 transition-colors ml-1 cursor-pointer"
                           onClick={(e) => handleActionClick(e, item.id)}
                         >
                           <item.actionIcon size={16} />
@@ -200,17 +223,7 @@ const Sidebar = ({ onNavItemClick }) => {
                     </div>
                   </div>
                 )}
-                {/* If sidebar is collapsed but item has action, show action icon on hover */}
-                {isCollapsed && item.hasAction && (
-                  <div className="absolute right-0 mr-2">
-                    <button 
-                      className="p-1 hover:bg-blue-100 rounded-full text-slate-500 hover:text-indigo-600 transition-colors"
-                      onClick={(e) => handleActionClick(e, item.id)}
-                    >
-                      <item.actionIcon size={14} />
-                    </button>
-                  </div>
-                )}
+                {/* We're removing the plus icon when sidebar is collapsed */}
               </div>
               
               {/* Sub items / Projects */}
@@ -233,7 +246,7 @@ const Sidebar = ({ onNavItemClick }) => {
                       {/* Project actions */}
                       <div className="relative">
                         <button 
-                          className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
+                          className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
                           onClick={(e) => handleProjectActions(e, project.id)}
                         >
                           <MoreHorizontal size={14} />
@@ -246,14 +259,14 @@ const Sidebar = ({ onNavItemClick }) => {
                             className="absolute right-0 bottom-0 transform translate-y-full mb-1 w-32 bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden z-10"
                           >
                             <button 
-                              className="flex items-center w-full px-3 py-2 text-left text-slate-700 hover:bg-slate-100 transition-colors"
+                              className="flex items-center w-full px-3 py-2 text-left text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                               onClick={(e) => editProject(e, project.id)}
                             >
                               <Edit2 size={14} className="mr-2 text-blue-500" />
                               Edit
                             </button>
                             <button 
-                              className="flex items-center w-full px-3 py-2 text-left text-slate-700 hover:bg-slate-100 transition-colors"
+                              className="flex items-center w-full px-3 py-2 text-left text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                               onClick={(e) => deleteProject(e, project.id)}
                             >
                               <Trash2 size={14} className="mr-2 text-red-500" />
@@ -292,7 +305,7 @@ const Sidebar = ({ onNavItemClick }) => {
           </div>
           
           {!isCollapsed && (
-            <button className="mt-4 w-full flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg py-2 text-sm transition-all duration-200 hover:shadow hover:border-blue-200 hover:transform hover:-translate-y-0.5">
+            <button className="mt-4 w-full flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg py-2 text-sm transition-all duration-200 hover:shadow hover:border-blue-200 hover:transform hover:-translate-y-0.5 cursor-pointer">
               <LogOut size={16} />
               <span>Log Out</span>
             </button>
@@ -302,14 +315,14 @@ const Sidebar = ({ onNavItemClick }) => {
 
       {/* Project Creation/Edit Modal */}
       {showProjectModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg w-96 overflow-hidden transform transition-all animate-fade-in">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl shadow-lg w-96 overflow-hidden transform transition-all animate-fade-in">
             <div className="flex justify-between items-center border-b border-gray-200 px-6 py-4">
               <h3 className="text-lg font-medium text-gray-900">
                 {isEditing ? 'Edit Project' : 'Create New Project'}
               </h3>
               <button 
-                className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-100"
+                className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-100 cursor-pointer"
                 onClick={() => setShowProjectModal(false)}
               >
                 <X size={20} />
@@ -336,13 +349,13 @@ const Sidebar = ({ onNavItemClick }) => {
               
               <div className="mt-6 flex space-x-3">
                 <button
-                  className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+                  className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors cursor-pointer"
                   onClick={() => setShowProjectModal(false)}
                 >
                   Cancel
                 </button>
                 <button
-                  className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-indigo-300"
+                  className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-indigo-300 cursor-pointer"
                   onClick={createNewProject}
                   disabled={!newProjectName.trim()}
                 >

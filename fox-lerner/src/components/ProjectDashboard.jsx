@@ -12,8 +12,13 @@ import {
   FileText,
   Youtube,
   Github,
-  UploadCloud
+  UploadCloud,
+  Mic,
+  Video,
+  MessageSquare,
+  Camera
 } from 'lucide-react';
+import CanvasArea from './CanvasArea'; // Import CanvasArea
 
 const ProjectDashboard = ({ projectId, projectName, onBackClick }) => {
   const [activeTab, setActiveTab] = useState('overview');  
@@ -24,6 +29,7 @@ const ProjectDashboard = ({ projectId, projectName, onBackClick }) => {
   const [canvasContent, setCanvasContent] = useState({
     content: "",
     contentType: "text",
+    language: "markdown", // Changed to markdown for consistency
     title: "Project Details"
   });
   
@@ -39,7 +45,7 @@ const ProjectDashboard = ({ projectId, projectName, onBackClick }) => {
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [selectedProject, setSelectedProject] = useState("current");
 
-  // File‑upload & external resource states
+  // File-upload & external resource states
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
@@ -49,6 +55,18 @@ const ProjectDashboard = ({ projectId, projectName, onBackClick }) => {
   const [youtubeLink, setYoutubeLink] = useState('');
   const [githubProfile, setGithubProfile] = useState('');
   
+  // New states for explanation and media (similar to ChatInterface)
+  const [isTyping, setIsTyping] = useState(false);
+  const [fullExplanation, setFullExplanation] = useState("");
+  const [currentExplanation, setCurrentExplanation] = useState("");
+  const typingSpeedRef = useRef(10); // milliseconds per character
+  const [explainMode, setExplainMode] = useState("chat"); // "chat", "audio", or "video"
+  const [micActive, setMicActive] = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState(null);
+  const videoRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -69,9 +87,7 @@ const ProjectDashboard = ({ projectId, projectName, onBackClick }) => {
   useEffect(() => {
     setIsLoading(true);
     
-    // Simulate API call to fetch project data
     setTimeout(() => {
-      // In a real app, this would be an API call based on projectId
       setProjectData({
         id: projectId,
         name: projectName || 'Project Name',
@@ -104,6 +120,36 @@ const ProjectDashboard = ({ projectId, projectName, onBackClick }) => {
       setIsLoading(false);
     }, 800);
   }, [projectId, projectName]);
+
+  // Typing effect
+  useEffect(() => {
+    if (isTyping && currentExplanation.length < fullExplanation.length) {
+      const timer = setTimeout(() => {
+        setCurrentExplanation(fullExplanation.substring(0, currentExplanation.length + 1));
+      }, typingSpeedRef.current);
+      
+      return () => clearTimeout(timer);
+    } else if (isTyping && currentExplanation.length === fullExplanation.length) {
+      setIsTyping(false);
+    }
+  }, [isTyping, currentExplanation, fullExplanation]);
+
+  // Update canvas content as typing occurs
+  useEffect(() => {
+    if (currentExplanation) {
+      setCanvasContent(prev => ({
+        ...prev,
+        content: currentExplanation
+      }));
+    }
+  }, [currentExplanation]);
+
+  // Clean up media resources when closing the canvas
+  useEffect(() => {
+    if (!showCanvas) {
+      cleanupMediaResources();
+    }
+  }, [showCanvas]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -162,7 +208,6 @@ const ProjectDashboard = ({ projectId, projectName, onBackClick }) => {
   };
 
   const processFiles = (files) => {
-    // In a real app, upload and attach to project
     const fileNames = Array.from(files).map(f => f.name).join(', ');
     alert(`Files received: ${fileNames}`);
     setShowFileUpload(false);
@@ -183,6 +228,62 @@ const ProjectDashboard = ({ projectId, projectName, onBackClick }) => {
     setShowExternalSourceModal(false);
   };
 
+  // ---------- Media Handlers ----------
+  const cleanupMediaResources = () => {
+    if (micActive) {
+      setMicActive(false);
+    }
+    
+    if (cameraActive) {
+      setCameraActive(false);
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        mediaStreamRef.current = null;
+      }
+    }
+  };
+
+  const handleSelectExplainMode = (mode) => {
+    setExplainMode(mode);
+    
+    if (mode === "audio" || mode === "video") {
+      if ((mode === "audio" && !micActive) || (mode === "video" && !cameraActive)) {
+        requestMediaPermissions(mode);
+      }
+    } else {
+      cleanupMediaResources();
+    }
+  };
+
+  const requestMediaPermissions = (mode) => {
+    const constraints = {
+      audio: mode === "audio" || mode === "video",
+      video: mode === "video" ? { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } } : false
+    };
+
+    navigator.mediaDevices.getUserMedia(constraints)
+      .then(stream => {
+        if (mode === "audio" || mode === "video") {
+          setMicActive(true);
+        }
+        
+        if (mode === "video") {
+          setCameraActive(true);
+          mediaStreamRef.current = stream;
+          
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.play().catch(err => console.error("Error playing video:", err));
+          }
+        }
+      })
+      .catch(err => {
+        console.error("Media permissions denied:", err);
+        alert(`Please allow ${mode === "audio" ? "microphone" : "camera and microphone"} access to use this feature.`);
+        setExplainMode("chat");
+      });
+  };
+
   // ---------- Chat logic ----------
   const handleSendMessage = () => {
     if (inputText.trim() === '') return;
@@ -190,23 +291,19 @@ const ProjectDashboard = ({ projectId, projectName, onBackClick }) => {
     setMessages([...messages, { type: 'user', content: inputText }]);
     setInputText('');
     
-    // Process the user's query and provide a relevant response
     const userQuery = inputText.toLowerCase();
     setTimeout(() => {
       let response;
       
       if (userQuery.includes('task') || userQuery.includes('to do')) {
         response = `You have ${projectData.tasks.length} tasks in this project. ${projectData.tasks.filter(t => t.status === 'completed').length} tasks are completed.`;
-        showTaskDetails();
+        // Removed showTaskDetails() to avoid auto-opening canvas
       } else if (userQuery.includes('note') || userQuery.includes('document')) {
         response = `You have ${projectData.notes.length} notes in this project.`;
-        showNoteDetails();
       } else if (userQuery.includes('resource') || userQuery.includes('material')) {
         response = `You have ${projectData.resources.length} resources available for this project.`;
-        showResourceDetails();
       } else if (userQuery.includes('progress') || userQuery.includes('status')) {
         response = `This project is ${projectData.completion}% complete. The due date is ${formatDate(projectData.dueDate)}.`;
-        showProjectOverview();
       } else {
         response = `I can help you manage your project "${projectData.name}". You can ask about tasks, notes, resources, or progress.`;
       }
@@ -230,9 +327,9 @@ const ProjectDashboard = ({ projectId, projectName, onBackClick }) => {
   const handleProjectSelect = (project) => {
     setSelectedProject(project);
     setShowProjectDropdown(false);
-    // In a real app, this would load data for the selected project
   };
   
+  // ---------- Canvas Content Generators ----------
   const showProjectOverview = () => {
     setShowCanvas(true);
     setCanvasContent({
@@ -251,6 +348,7 @@ const ProjectDashboard = ({ projectId, projectName, onBackClick }) => {
 - Resources: ${projectData.resources.length}
       `,
       contentType: "text/markdown",
+      language: "markdown",
       title: "Project Overview"
     });
   };
@@ -268,6 +366,7 @@ const ProjectDashboard = ({ projectId, projectName, onBackClick }) => {
 ${taskList}
       `,
       contentType: "text/markdown",
+      language: "markdown",
       title: "Project Tasks"
     });
   };
@@ -285,6 +384,7 @@ ${taskList}
 ${notesList}
       `,
       contentType: "text/markdown",
+      language: "markdown",
       title: "Project Notes"
     });
   };
@@ -302,25 +402,67 @@ ${notesList}
 ${resourcesList}
       `,
       contentType: "text/markdown",
+      language: "markdown",
       title: "Project Resources"
     });
   };
   
+  // Modified handleOpenDetails to mimic ChatInterface's explanation behavior
   const handleOpenDetails = (message) => {
-    // Determine which details to show based on message content
+    setSelectedMessage(message);
+    setExplainMode("chat"); // Default to chat mode
+    
+    // Generate explanation based on message content
     const content = message.content.toLowerCase();
+    let explanation;
+    
     if (content.includes('task')) {
-      showTaskDetails();
+      const taskList = projectData.tasks.map(task => 
+        `- [${task.status === 'completed' ? 'x' : ' '}] **${task.title}** (Due: ${formatDate(task.dueDate)}) - ${getStatusLabel(task.status)}`
+      ).join('\n');
+      explanation = `Here's a simpler explanation of:\n\n"${message.content}"\n\n🦊 Fox explanation:\nThis message is about the tasks in your project "${projectData.name}". You have ${projectData.tasks.length} tasks, with ${projectData.tasks.filter(t => t.status === 'completed').length} completed. Here's the full list:\n\n${taskList}`;
     } else if (content.includes('note')) {
-      showNoteDetails();
+      const notesList = projectData.notes.map(note => 
+        `- **${note.title}**: ${note.content.substring(0, 50)}... (Last edited: ${formatDate(note.lastEdited)})`
+      ).join('\n');
+      explanation = `Here's a simpler explanation of:\n\n"${message.content}"\n\n🦊 Fox explanation:\nThis message refers to the notes in your project "${projectData.name}". You have ${projectData.notes.length} notes. Here's a summary:\n\n${notesList}`;
     } else if (content.includes('resource')) {
-      showResourceDetails();
+      const resourcesList = projectData.resources.map(resource => 
+        `- **${resource.title}** (${resource.type}) - Source: ${resource.source}`
+      ).join('\n');
+      explanation = `Here's a simpler explanation of:\n\n"${message.content}"\n\n🦊 Fox explanation:\nThis message is about the resources available for your project "${projectData.name}". You have ${projectData.resources.length} resources. Here's the list:\n\n${resourcesList}`;
     } else {
-      showProjectOverview();
+      explanation = `Here's a simpler explanation of:\n\n"${message.content}"\n\n🦊 Fox explanation:\nThis message relates to your project "${projectData.name}", which is ${projectData.completion}% complete and due on ${formatDate(projectData.dueDate)}. You can ask about tasks, notes, resources, or progress for more details.`;
     }
+    
+    // Set up for typing effect
+    setFullExplanation(explanation);
+    setCurrentExplanation("");
+    
+    // Initialize canvas content
+    setCanvasContent({
+      content: "",
+      contentType: "text",
+      language: "markdown",
+      title: `Fox Explanation (${explainMode.charAt(0).toUpperCase() + explainMode.slice(1)} Mode)`
+    });
+    
+    // Show canvas
+    setShowCanvas(true);
+    
+    // Start typing effect
+    setTimeout(() => {
+      setIsTyping(true);
+    }, 50);
   };
   
-  const handleCloseCanvas = () => setShowCanvas(false);
+  const handleCloseCanvas = () => {
+    setShowCanvas(false);
+    setIsTyping(false);
+    setCurrentExplanation("");
+    setExplainMode("chat");
+    cleanupMediaResources();
+  };
 
   // Option label mapping for display
   const optionLabels = {
@@ -330,7 +472,7 @@ ${resourcesList}
     overview: 'practice'
   };
 
-  // Project options for dropdown (in a real app, these would be actual projects)
+  // Project options for dropdown
   const projectOptions = ['Chat1', 'Chat2', 'Chat3'];
 
   if (isLoading) {
@@ -360,7 +502,6 @@ ${resourcesList}
                 <span className="mr-2 text-slate-500"><FileText size={20} /></span>
                 <h2 className="font-medium text-lg text-slate-700">{projectData.name}</h2>
               </div>
-              {/* View Options Dropdown */}
               <div className="ml-4 option-dropdown-container relative">
                 <button 
                   className="py-1 px-3 rounded-full hover:bg-slate-50 transition-colors text-slate-700 flex items-center border border-slate-200"
@@ -385,7 +526,6 @@ ${resourcesList}
                 )}
               </div>
             </div>
-            {/* Project Selection Dropdown */}
             <div className="project-dropdown-container relative">
               <button 
                 className="py-1 px-3 rounded-full hover:bg-slate-50 transition-colors text-slate-700 flex items-center border border-slate-200 text-sm"
@@ -435,7 +575,7 @@ ${resourcesList}
                           onClick={() => handleOpenDetails(message)}
                         >
                           <HelpCircle size={16} />
-                          <span className="ml-1 text-xs font-medium">Show Details</span>
+                          <span className="ml-1 text-xs font-medium">Explain it Fox</span>
                         </button>
                       </div>
                     </div>
@@ -476,11 +616,9 @@ ${resourcesList}
                 <Send size={20} />
               </button>
             </div>
-            {/* Helper Text */}
             <div className="mt-2 text-center text-xs text-slate-400">
               Ask about tasks, notes, resources, or project progress
             </div>
-            {/* Add File & Add Resource buttons */}
             <div className="flex justify-center gap-4 mt-4">
               <button 
                 className="flex items-center justify-center gap-2 border border-slate-200 rounded-lg py-3 px-4 text-slate-700 font-medium hover:bg-slate-50 transition-all w-full bg-white hover:text-indigo-600 hover:border-indigo-200 group"
@@ -554,7 +692,6 @@ ${resourcesList}
           {showExternalSourceModal && (
             <div className="fixed inset-0 flex items-center justify-center bg-white/75 z-50">
               <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
-                {/* Modal Header */}
                 <div className="flex items-center justify-between p-4 border-b border-slate-200">
                   <h3 className="font-medium text-lg text-slate-700">Add External Resource</h3>
                   <button 
@@ -564,7 +701,6 @@ ${resourcesList}
                     <X size={20} />
                   </button>
                 </div>
-                {/* Modal Tabs */}
                 <div className="flex border-b border-slate-200">
                   <button 
                     className={`flex-1 py-3 px-4 text-center font-medium transition-colors ${externalSourceType === 'youtube' ? 'bg-white text-indigo-600 border-b-2 border-indigo-500' : 'text-slate-600 hover:bg-slate-50'}`}
@@ -585,7 +721,6 @@ ${resourcesList}
                     </div>
                   </button>
                 </div>
-                {/* Modal Content */}
                 <div className="p-4">
                   {externalSourceType === 'youtube' ? (
                     <div>
@@ -615,7 +750,6 @@ ${resourcesList}
                     </div>
                   )}
                 </div>
-                {/* Modal Footer */}
                 <div className="p-4 bg-white flex justify-end">
                   <button 
                     className="px-4 py-2 bg-slate-200 text-slate-700 rounded-md hover:bg-slate-300 transition-colors mr-2"
@@ -640,8 +774,50 @@ ${resourcesList}
           <div className="w-3/5 flex flex-col relative">
             <div className="bg-white p-3 flex justify-between items-center text-black z-10">
               <h3 className="font-medium flex items-center">
-                <span className="mr-2 text-lg"><FileText size={20} /></span> 
+                <span className="mr-2 text-lg">🦊</span> 
                 {canvasContent.title}
+                {isTyping && (
+                  <span className="ml-2 inline-flex">
+                    <span className="animate-pulse">.</span>
+                    <span className="animate-pulse delay-100">.</span>
+                    <span className="animate-pulse delay-200">.</span>
+                  </span>
+                )}
+                {/* Media mode selector icons */}
+                <div className="ml-3 flex gap-2">
+                  <button 
+                    className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "chat" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
+                    onClick={() => handleSelectExplainMode("chat")}
+                    title="Text explanation"
+                  >
+                    <MessageSquare size={16} />
+                  </button>
+                  <button 
+                    className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "audio" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
+                    onClick={() => handleSelectExplainMode("audio")}
+                    title="Voice explanation"
+                  >
+                    <Mic size={16} />
+                  </button>
+                  <button 
+                    className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "video" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
+                    onClick={() => handleSelectExplainMode("video")}
+                    title="Video explanation"
+                  >
+                    <Video size={16} />
+                  </button>
+                </div>
+                {/* Media indicators */}
+                {micActive && (
+                  <span className="ml-2 px-2 py-1 bg-red-100 text-red-600 rounded-full text-xs flex items-center">
+                    <Mic size={12} className="mr-1" /> Mic active
+                  </span>
+                )}
+                {cameraActive && (
+                  <span className="ml-2 px-2 py-1 bg-red-100 text-red-600 rounded-full text-xs flex items-center">
+                    <Video size={12} className="mr-1" /> Camera active
+                  </span>
+                )}
               </h3>
               <button 
                 className="p-1 rounded-full hover:bg-slate-200 transition-colors"
@@ -651,11 +827,35 @@ ${resourcesList}
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 bg-slate-50 relative">
-              <div className="bg-white rounded-lg p-6 shadow-sm">
-                {/* Canvas content - in real app render markdown */}
-                <div className="prose">
-                  <pre className="whitespace-pre-wrap">{canvasContent.content}</pre>
+              {/* Camera Avatar */}
+              {cameraActive && (
+                <div className="absolute bottom-8 right-8 z-10 transition-all duration-300 ease-in-out">
+                  <div className="group relative">
+                    <div className="w-36 h-36 rounded-xl overflow-hidden shadow-lg bg-gray-900 ring-4 ring-indigo-500 ring-opacity-70 transition-all duration-300 hover:ring-opacity-100">
+                      <video 
+                        ref={videoRef} 
+                        className="w-full h-full object-cover"
+                        autoPlay 
+                        playsInline
+                        muted
+                      />
+                    </div>
+                    <div className="absolute -top-2 -right-2 bg-red-500 p-2 rounded-full shadow-md flex items-center justify-center">
+                      <Camera size={14} className="text-white" />
+                    </div>
+                    <div className="absolute -bottom-2 inset-x-0 bg-indigo-600 py-1 px-3 text-white text-xs font-medium text-center rounded-b-xl opacity-90">
+                      You
+                    </div>
+                  </div>
                 </div>
+              )}
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <CanvasArea
+                  content={canvasContent.content}
+                  contentType={canvasContent.contentType}
+                  language={canvasContent.language}
+                  title={canvasContent.title}
+                />
               </div>
             </div>
           </div>
