@@ -43,12 +43,12 @@ const DashboardView = () => {
       <div className="fixed top-1/2 right-1/4 w-40 h-40 bg-slate-100 rounded-full opacity-20 blur-3xl animate-pulse" ></div>
       
       {/* Header with larger centered title */}
-      <div className="text-center mb-12 mt-16 relative z-10">
+      <div className="text-center mb-12 mt-25 relative z-10">
         <h1 className="text-5xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-slate-700 to-slate-900 mb-6 animate-fadeIn">
           Hey, Rahul! What would you like <br />to learn today?
         </h1>
         <p className="text-slate-500 max-w-1xl mx-auto text-lg animate-fadeIn" >
-          Explore curated learning paths or search for specific topics to enhance your knowledge
+        You've been enrolled to 1st year sylabus. Let's get started with your learning journey.
         </p>
       </div>
 
@@ -78,7 +78,7 @@ const DashboardView = () => {
       </div>
 
       {/* Search input with neutral colors */}
-      <div className="max-w-3xl mx-auto mb-12 flex items-center justify-center animate-fadeIn" >
+      <div className="max-w-3xl mx-auto mb-12 flex items-center justify-center animate-fadeIn mt-16" >
         <div className="relative flex items-center w-full">
           <input
             type="text"
@@ -101,13 +101,13 @@ const DashboardView = () => {
         </button>
       </div>
 
-      {/* Featured section */}
-      <div className="max-w-6xl mx-auto mb-12 animate-fadeIn" >
+      {/* Featured section - repositioned with extra space */}
+      <div className="max-w-6xl mx-auto mb-12 animate-fadeIn mt-20" >
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-3xl p-8 shadow-lg overflow-hidden relative">
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-200 rounded-full opacity-20 blur-3xl -translate-y-1/2 translate-x-1/4"></div>
           <div className="flex flex-col md:flex-row items-center">
-            <div className="md:w-2/3 mb-6 md:mb-0 md:pr-8">
-              <span className="px-4 py-1 rounded-full bg-blue-100 text-blue-600 text-xs font-medium">FEATURED</span>
+            <div className="md:w-2/3 mb-6 md:mb-0 md:pr-8 ">
+              <span className="px-4 py-1 rounded-full bg-blue-100 text-blue-600 text-xs font-medium ">FEATURED</span>
               <h2 className="text-3xl font-bold mt-4 mb-4 text-slate-800">Advanced Machine Learning Techniques</h2>
               <p className="text-slate-600 mb-6">Master the latest machine learning algorithms and techniques with our comprehensive learning path.</p>
               <button className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full font-medium flex items-center hover:shadow-lg transition-all duration-300 transform hover:scale-105">
@@ -139,7 +139,6 @@ const DashboardView = () => {
           </div>
         </div>
       </div>
-
 
       {/* Learning cards grid - matching LearningModule neutral style */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">

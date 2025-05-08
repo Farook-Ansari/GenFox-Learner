@@ -33,10 +33,10 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
 
   const inputRef = useRef(null);
   
-  // Dropdown state - modified to start with null selected option
+  // Dropdown state - modified to start with 'solve' as selected option
   const [showDropdown, setShowDropdown] = useState(false);
-  const [selectedOption, setSelectedOption] = useState(null); // Changed from 'solve' to null
-  const [optionSelected, setOptionSelected] = useState(false); // Track if an option has been selected
+  const [selectedOption, setSelectedOption] = useState('solve'); // Changed to 'solve' as default
+  const [optionSelected, setOptionSelected] = useState(true); // Track if an option has been selected
   
   // New dropdown for category chats
   const [showChatDropdown, setShowChatDropdown] = useState(false);
@@ -58,23 +58,6 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
       inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
     }
   }, [inputText]);
-  
-  // Modified effect to send initial question ONLY after an option has been selected
-  useEffect(() => {
-    if (initialQuestion && optionSelected && selectedOption) {
-      // Set input text to initial question if it's not already set
-      if (inputText !== initialQuestion) {
-        setInputText(initialQuestion);
-      }
-      
-      // Set a small timeout to ensure UI renders first
-      const timer = setTimeout(() => {
-        handleSendMessage();
-      }, 300);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [optionSelected, selectedOption]); // Depend on both optionSelected and selectedOption
   
   // Effect for typing animation
   useEffect(() => {
@@ -249,9 +232,46 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
   
   const handleOptionSelect = (option) => {
     console.log(`Selected option: ${option}`);
+    const previousOption = selectedOption;
     setSelectedOption(option);
     setShowDropdown(false);
     setOptionSelected(true); // Mark that an option has been selected
+    
+    // If "Learn With Me" (memorize) is selected, start the learning session
+    if (option === 'memorize' && previousOption !== 'memorize') {
+      // Create a learning message as content
+      const learningMessage = `This is a learning session for ${category}. We'll help you memorize key concepts through interactive exercises and spaced repetition techniques.`;
+      
+      // Open the learning canvas with typing effect, similar to Explain it Fox
+      startLearningSession(learningMessage);
+    } else if (option !== 'memorize' && previousOption === 'memorize') {
+      // Close the canvas if switching away from "Learn With Me"
+      handleCloseCanvas();
+    }
+  };
+  
+  const startLearningSession = (message) => {
+    // Generate the full learning content text with formatting
+    const learningContent = `# Learning Session for ${category}\n\nWelcome to your learning session! This canvas will help you memorize key concepts about ${category}.\n\n## Key Points\n\n- Point 1: This is where key learning material would appear\n- Point 2: More detailed explanations would be shown here\n- Point 3: Visual aids and memory techniques would be displayed`;
+    
+    // Start with empty content
+    setCanvasContent({
+      content: "",
+      contentType: "text",
+      title: `Learn With Me: ${category}`
+    });
+    
+    // Set the full explanation that will be shown character by character
+    setFullExplanation(learningContent);
+    setCurrentExplanation("");
+    
+    // Show the canvas
+    setShowCanvas(true);
+    
+    // Start typing effect after a small delay
+    setTimeout(() => {
+      setIsTyping(true);
+    }, 50);
   };
   
   const handleChatSelect = (chat) => {
@@ -264,20 +284,14 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
   
   // Option label mapping for display
   const optionLabels = {
-    solve: 'Solve',
-    memorize: 'Memorize',
-    practice: 'Practice'
+    solve: 'Teach Me',
+    memorize: 'Learn With Me',
+    practice: 'Quize'
   };
   
   // Chat options for dropdown
   const chatOptions = ['chat1', 'chat2', 'chat3'];
   
-  const suggestedQueries = [
-    `What is ${category}?`,
-    `Why is ${category} important?`,
-    `How can I learn more about ${category}?`
-  ];
-
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Main Content Area with clean white theme */}
@@ -411,13 +425,12 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
                 <textarea
                   ref={inputRef}
                   className="flex-1 px-4 py-2 bg-transparent outline-none resize-none text-slate-700"
-                  placeholder={selectedOption ? `Ask about ${category} in ${selectedChat}...` : "Select an option above to continue..."}
+                  placeholder={`Ask about ${category} in ${selectedChat}...`}
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   onKeyPress={handleKeyPress}
                   rows={1}
                   style={{ minHeight: '40px', maxHeight: '100px' }}
-                  disabled={!selectedOption} // Disable input until option is selected
                 />
                 <button className="p-2 text-slate-300 hover:text-slate-500">
                   <Smile size={20} />
@@ -437,7 +450,7 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
             </div>
             <div className="mt-2">
               <p className="text-xs text-slate-400 text-center">
-                {!selectedOption ? 'Please select an option above to continue.' : 'AI responses may contain inaccuracies. Please verify important information.'}
+                AI responses may contain inaccuracies. Please verify important information.
               </p>
             </div>
           </div>
@@ -448,40 +461,51 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
           <div className="w-3/5 flex flex-col relative">
             <div className="bg-white p-3 flex justify-between items-center text-black z-10">
               <h3 className="font-medium flex items-center">
-                <span className="mr-2 text-lg">🦊</span> 
-                Fox Explanation
-                {isTyping && (
-                  <span className="ml-2 inline-flex">
-                    <span className="animate-pulse">.</span>
-                    <span className="animate-pulse delay-100">.</span>
-                    <span className="animate-pulse delay-200">.</span>
-                  </span>
+                {selectedOption === 'memorize' ? (
+                  <>
+                    <span className="mr-2 text-lg">📚</span> 
+                    Learn With Me: {category}
+                  </>
+                ) : (
+                  <>
+                    <span className="mr-2 text-lg">🦊</span> 
+                    Fox Explanation
+                    {isTyping && (
+                      <span className="ml-2 inline-flex">
+                        <span className="animate-pulse">.</span>
+                        <span className="animate-pulse delay-100">.</span>
+                        <span className="animate-pulse delay-200">.</span>
+                      </span>
+                    )}
+                  </>
                 )}
                 
-                {/* Media mode selector icons */}
-                <div className="ml-3 flex gap-2">
-                  <button 
-                    className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "chat" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
-                    onClick={() => handleSelectExplainMode("chat")}
-                    title="Text explanation"
-                  >
-                    <MessageSquare size={16} />
-                  </button>
-                  <button 
-                    className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "audio" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
-                    onClick={() => handleSelectExplainMode("audio")}
-                    title="Voice explanation"
-                  >
-                    <Mic size={16} />
-                  </button>
-                  <button 
-                    className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "video" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
-                    onClick={() => handleSelectExplainMode("video")}
-                    title="Video explanation"
-                  >
-                    <Video size={16} />
-                  </button>
-                </div>
+                {/* Only show media mode selector icons for Fox Explanation */}
+                {selectedOption !== 'memorize' && (
+                  <div className="ml-3 flex gap-2">
+                    <button 
+                      className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "chat" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
+                      onClick={() => handleSelectExplainMode("chat")}
+                      title="Text explanation"
+                    >
+                      <MessageSquare size={16} />
+                    </button>
+                    <button 
+                      className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "audio" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
+                      onClick={() => handleSelectExplainMode("audio")}
+                      title="Voice explanation"
+                    >
+                      <Mic size={16} />
+                    </button>
+                    <button 
+                      className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "video" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
+                      onClick={() => handleSelectExplainMode("video")}
+                      title="Video explanation"
+                    >
+                      <Video size={16} />
+                    </button>
+                  </div>
+                )}
                 
                 {/* Media indicators */}
                 {micActive && (

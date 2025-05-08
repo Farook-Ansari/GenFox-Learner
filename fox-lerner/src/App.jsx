@@ -6,6 +6,8 @@ import DashboardView from './components/DashboardView';
 import Sidebar from './components/Sidebar';
 import Syllabus from './components/Syllabus';
 import ProjectDashboard from './components/ProjectDashboard';
+import Assessment from './components/Assessment'; // Fixed the typo in the import
+
 
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -224,6 +226,9 @@ const App = () => {
         )}
         {currentView === 'dashboard' && (
           <DashboardView />
+        )}
+        {currentView === 'assessment' && (
+          <Assessment />
         )}
         {currentView === 'schedule' && (
           <div className="flex-1 bg-slate-50 p-6 overflow-y-auto">

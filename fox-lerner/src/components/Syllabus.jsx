@@ -253,8 +253,8 @@ const Syllabus = ({ category, categoryIcon, categoryColor, onBackClick }) => {
       <div className="flex-1 overflow-y-auto bg-white" style={{ overflowY: 'scroll' }}>
         <div className="p-6">
           {/* Input area moved to top */}
-          <div className="mb-6 bg-white rounded-xl p-4">
-            <div className="flex items-center">
+          <div className=" bg-white rounded-xl p-4">
+            {/* <div className="flex items-center">
               <div className="flex-1 border border-slate-200 rounded-lg flex items-center overflow-hidden bg-white">
                 <textarea
                   ref={inputRef}
@@ -281,10 +281,10 @@ const Syllabus = ({ category, categoryIcon, categoryColor, onBackClick }) => {
               >
                 <Send size={20} />
               </button>
-            </div>
+            </div> */}
             
             {/* Add File and Add YouTube/GitHub buttons moved to top */}
-            <div className="flex justify-center gap-4 mt-4">
+            {/* <div className="flex justify-center gap-4 mt-4">
               <button 
                 className="flex items-center justify-center gap-2 border border-slate-200 rounded-lg py-3 px-4 text-slate-700 font-medium hover:bg-slate-50 transition-all w-full bg-white hover:text-indigo-600 hover:border-indigo-200 group"
                 onClick={handleAddFile}
@@ -306,7 +306,7 @@ const Syllabus = ({ category, categoryIcon, categoryColor, onBackClick }) => {
                 </div>
                 <span>Add Resource</span>
               </button>
-            </div>
+            </div> */}
           </div>
           
           {/* Course overview */}
@@ -413,11 +413,35 @@ const Syllabus = ({ category, categoryIcon, categoryColor, onBackClick }) => {
             })}
           </div>
         </div>
+                    {/* Add File and Add YouTube/GitHub buttons moved to top */}
+             <div className="flex justify-center gap-4 mb-10">
+              <button 
+                className="flex items-center justify-center gap-2 border border-slate-200 rounded-lg py-3 px-4 text-slate-700 font-medium hover:bg-slate-50 transition-all w-full bg-white hover:text-indigo-600 hover:border-indigo-200 group"
+                onClick={handleAddFile}
+              >
+                <div className="bg-indigo-50 p-2 rounded-full text-indigo-500 group-hover:bg-indigo-100 transition-colors">
+                  <FileText size={18} />
+                </div>
+                <span>Add File</span>
+              </button>
+              
+              <button 
+                className="flex items-center justify-center gap-2 border border-slate-200 rounded-lg py-3 px-4 text-slate-700 font-medium hover:bg-slate-50 transition-all w-full bg-white hover:text-indigo-600 hover:border-indigo-200 group"
+                onClick={handleAddExternalSource}
+              >
+                <div className="bg-indigo-50 rounded-full p-2 flex items-center justify-center text-indigo-500 group-hover:bg-indigo-100 transition-colors">
+                  <Youtube size={16} className="mr-1" />
+                  <span className="mx-1 text-indigo-300">/</span>
+                  <Github size={16} className="ml-1" />
+                </div>
+                <span>Add Resource</span>
+              </button>
+            </div> 
       </div>
       
       {/* File Upload Dialog */}
       {showFileUpload && (
-        <div className="file-upload-container absolute bottom-20 left-0 right-0 mx-4 bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden z-20">
+        <div className="file-upload-container absolute bottom-20 left-0 right-0 mx-80 bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden z-20">
           <div className="p-4 border-b border-slate-100 flex justify-between items-center">
             <h3 className="font-medium text-slate-700">Upload Files</h3>
             <button 

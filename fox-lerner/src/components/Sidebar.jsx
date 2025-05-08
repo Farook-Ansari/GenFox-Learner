@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Home, Book, Calendar, MessageSquare, Settings, LogOut, ChevronDown, Plus, X, FileText, MoreHorizontal, Edit2, Trash2 } from 'lucide-react';
+import { Home, Book, Calendar, MessageSquare, Settings, LogOut, ChevronDown, Plus, X, FileText, MoreHorizontal, Edit2, Trash2, FileCheck } from 'lucide-react';
 
 const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialProjects = [] }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -45,9 +45,10 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
   
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'learning', label: 'Acadamic&Support', icon: Book },
+    { id: 'learning', label: 'Acadamics', icon: Book },
     { id: 'schedule', label: 'Study Resources', icon: Calendar, hasAction: true, actionIcon: Plus, hasSubItems: true },
     { id: 'chat', label: 'Chat', icon: MessageSquare },
+    { id: 'assessment', label: 'Assessments', icon: FileCheck }, // Fixed ID and added proper icon
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
   
@@ -390,5 +391,4 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
     </>
   );
 };
-
 export default Sidebar;
