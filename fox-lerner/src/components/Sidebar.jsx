@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Home, Book, Calendar, MessageSquare, Settings, LogOut, ChevronLeft, ChevronRight, Plus, X, FileText, ChevronDown, MoreHorizontal, Edit2, Trash2 } from 'lucide-react';
+import { Home, Book, Calendar, MessageSquare, Settings, LogOut, ChevronDown, Plus, X, FileText, MoreHorizontal, Edit2, Trash2 } from 'lucide-react';
 
 const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialProjects = [] }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -179,11 +179,32 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
             </div>
             {!isCollapsed && <h1 className="font-semibold text-lg text-slate-700">Genfox AI</h1>}
           </div>
+
+          {/* Enhanced Toggle Button */}
           <button
             onClick={toggleSidebar}
-            className="text-slate-500 hover:bg-blue-100 p-1 rounded-full transition-all duration-200 hover:scale-110 cursor-pointer relative z-10"
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-gradient-to-br from-indigo-50 to-blue-100 shadow-sm hover:shadow transition-all duration-300 group border border-indigo-100"
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+            <div className="relative w-5 h-5 flex items-center justify-center overflow-hidden">
+              {/* Animated Arrow */}
+              <div className={`transform transition-all duration-300 ease-in-out ${isCollapsed ? 'translate-x-0.5' : '-translate-x-0.5'}`}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
+                     className={`transform transition-transform duration-300 ${isCollapsed ? 'rotate-180' : 'rotate-0'}`}
+                >
+                  <path 
+                    d={isCollapsed ? "M15 18l-6-6 6-6" : "M9 18l6-6-6-6"} 
+                    stroke="#4F46E5" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+            </div>
+            
+            {/* Subtle hover effect circle */}
+            <div className="absolute inset-0 rounded-full bg-indigo-500 opacity-0 scale-0 group-hover:opacity-10 group-hover:scale-100 transition-all duration-300"></div>
           </button>
         </div>
         
@@ -316,7 +337,7 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
       {/* Project Creation/Edit Modal */}
       {showProjectModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl shadow-lg w-96 overflow-hidden transform transition-all animate-fade-in">
+          <div className="bg-white rounded-xl shadow-lg w-96 overflow-hidden transform transition-all animate-fade-in">
             <div className="flex justify-between items-center border-b border-gray-200 px-6 py-4">
               <h3 className="text-lg font-medium text-gray-900">
                 {isEditing ? 'Edit Project' : 'Create New Project'}

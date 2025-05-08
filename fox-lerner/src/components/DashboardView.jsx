@@ -45,7 +45,7 @@ const DashboardView = () => {
       {/* Header with larger centered title */}
       <div className="text-center mb-12 mt-16 relative z-10">
         <h1 className="text-5xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-slate-700 to-slate-900 mb-6 animate-fadeIn">
-          What would you like <br />to learn today?
+          Hey, Rahul! What would you like <br />to learn today?
         </h1>
         <p className="text-slate-500 max-w-1xl mx-auto text-lg animate-fadeIn" >
           Explore curated learning paths or search for specific topics to enhance your knowledge

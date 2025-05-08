@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Copy, Download, Code, FileText, Image as ImageIcon, ChevronLeft, ChevronRight, Maximize2, Minimize2, Share2, Book, Layout } from 'lucide-react';
+import { Copy, Download, Code, FileText, Image as ImageIcon, ChevronLeft, ChevronRight, Maximize2, Minimize2, Share2, BookMarked, Layout } from 'lucide-react';
 import Prism from 'prismjs';
 import 'prismjs/themes/prism-tomorrow.css';
 import 'prismjs/components/prism-javascript';
@@ -425,7 +425,7 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
             onMouseEnter={() => handleTooltip('Switch to Book View')}
             onMouseLeave={() => handleTooltip('')}
           >
-            <Book size={16} className="stroke-2" />
+            <BookMarked size={16} className="stroke-2" />
           </button>
           <button 
             onClick={copyToClipboard} 
