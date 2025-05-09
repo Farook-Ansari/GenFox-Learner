@@ -49,7 +49,7 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
     { id: 'schedule', label: 'Study Resources', icon: Calendar, hasAction: true, actionIcon: Plus, hasSubItems: true },
     { id: 'chat', label: 'Chat', icon: MessageSquare },
     { id: 'assessment', label: 'Assessments', icon: FileCheck }, // Fixed ID and added proper icon
-    { id: 'notes', label: 'Notes', icon: FileCheck }, // Fixed ID and added proper icon
+    { id: 'notes', label: 'Notes', icon: FileCheck }, 
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
   
