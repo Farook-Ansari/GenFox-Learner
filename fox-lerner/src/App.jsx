@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { BookOpen } from 'lucide-react';
-import ChatInterface from './components/ChatInterface';
+import ChatInterface from './components/chatInterface';
 import LearningModule from './components/LearningModule';
 import DashboardView from './components/DashboardView';
 import Sidebar from './components/Sidebar';
