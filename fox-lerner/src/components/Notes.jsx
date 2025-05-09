@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronLeft, BookOpen, Clock, X, UploadCloud, FileText, Send, Smile, ChevronDown, ChevronUp, Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { ChevronLeft, BookOpen, Clock, X, UploadCloud, FileText, Send, Smile, ChevronDown, ChevronUp, Plus, Search, Edit, Trash2, Filter } from 'lucide-react';
 
 const Notes = () => {
   // State for text input
@@ -11,6 +11,7 @@ const Notes = () => {
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [newNoteSubject, setNewNoteSubject] = useState('');
   const [newNoteContent, setNewNoteContent] = useState('');
+  const [newNoteChapter, setNewNoteChapter] = useState('');
   
   // State to track which subjects are expanded
   const [expandedNotes, setExpandedNotes] = useState({});
@@ -18,12 +19,26 @@ const Notes = () => {
   // State for editing notes
   const [editingNote, setEditingNote] = useState(null);
   const [editNoteContent, setEditNoteContent] = useState('');
+  const [editNoteChapter, setEditNoteChapter] = useState('');
+
+  // State for filters
+  const [filterSubject, setFilterSubject] = useState('');
+  const [filterChapter, setFilterChapter] = useState('');
+  const [filterContent, setFilterContent] = useState('');
+  const [filterDate, setFilterDate] = useState('');
+  const [showFilter, setShowFilter] = useState({
+    subject: false,
+    chapter: false,
+    content: false,
+    date: false
+  });
 
   // Example notes data organized by subjects
   const [notesData, setNotesData] = useState([
     {
       id: 1,
       subject: 'Mathematics',
+      chapter: 'Pythagorean theorem',
       content: 'Review calculus formulas for the upcoming test. Focus on integration by parts and substitution methods.',
       timestamp: '2025-05-08T14:30:00Z',
       color: 'bg-blue-50 text-blue-500'
@@ -31,6 +46,7 @@ const Notes = () => {
     {
       id: 2,
       subject: 'OOPS with C++',
+      chapter: 'Object-Oriented Concepts',
       content: 'Study inheritance, polymorphism, and encapsulation concepts. Practice virtual functions and operator overloading examples.',
       timestamp: '2025-05-07T09:15:00Z',
       color: 'bg-purple-50 text-purple-500'
@@ -38,6 +54,7 @@ const Notes = () => {
     {
       id: 3,
       subject: 'Data Structures',
+      chapter: 'Trees and Heaps',
       content: 'Implement binary search tree and heap data structures. Analyze time complexity for each operation.',
       timestamp: '2025-05-06T11:45:00Z',
       color: 'bg-green-50 text-green-500'
@@ -45,6 +62,7 @@ const Notes = () => {
     {
       id: 4,
       subject: 'Computer Networks',
+      chapter: 'Network Protocols',
       content: 'Study TCP/IP protocol stack, OSI model layers, and routing algorithms. Review subnet masking calculations.',
       timestamp: '2025-05-05T16:20:00Z',
       color: 'bg-orange-50 text-orange-500'
@@ -52,6 +70,7 @@ const Notes = () => {
     {
       id: 5,
       subject: 'Software Engineering',
+      chapter: 'Development Methodologies',
       content: 'Review software development life cycle models. Study agile methodologies and scrum practices.',
       timestamp: '2025-05-04T10:00:00Z',
       color: 'bg-red-50 text-red-500'
@@ -104,8 +123,8 @@ const Notes = () => {
   
   // Add new note
   const handleAddNote = () => {
-    if (newNoteSubject.trim() === '' || newNoteContent.trim() === '') {
-      alert('Subject and content are required');
+    if (newNoteSubject.trim() === '' || newNoteContent.trim() === '' || newNoteChapter.trim() === '') {
+      alert('Subject, chapter, and content are required');
       return;
     }
     
@@ -121,6 +140,7 @@ const Notes = () => {
     const newNote = {
       id: notesData.length + 1,
       subject: newNoteSubject,
+      chapter: newNoteChapter,
       content: newNoteContent,
       timestamp: new Date().toISOString(),
       color: colors[Math.floor(Math.random() * colors.length)]
@@ -129,6 +149,7 @@ const Notes = () => {
     setNotesData([newNote, ...notesData]);
     setNewNoteSubject('');
     setNewNoteContent('');
+    setNewNoteChapter('');
     setShowNoteForm(false);
   };
   
@@ -136,19 +157,21 @@ const Notes = () => {
   const startEditNote = (note) => {
     setEditingNote(note.id);
     setEditNoteContent(note.content);
+    setEditNoteChapter(note.chapter);
   };
   
   const saveEditedNote = (noteId) => {
-    if (editNoteContent.trim() === '') return;
+    if (editNoteContent.trim() === '' || editNoteChapter.trim() === '') return;
     
     setNotesData(notesData.map(note => 
       note.id === noteId 
-        ? { ...note, content: editNoteContent, timestamp: new Date().toISOString() } 
+        ? { ...note, content: editNoteContent, chapter: editNoteChapter, timestamp: new Date().toISOString() } 
         : note
     ));
     
     setEditingNote(null);
     setEditNoteContent('');
+    setEditNoteChapter('');
   };
   
   // Delete a note
@@ -158,11 +181,28 @@ const Notes = () => {
     }
   };
   
-  // Filter notes based on search
+  // Toggle filter dropdown
+  const toggleFilter = (filterType) => {
+    setShowFilter(prev => ({
+      ...prev,
+      [filterType]: !prev[filterType]
+    }));
+  };
+
+  // Filter notes based on search and filters
   const filteredNotes = notesData.filter(note => 
-    note.subject.toLowerCase().includes(searchText.toLowerCase()) || 
-    note.content.toLowerCase().includes(searchText.toLowerCase())
+    (note.subject.toLowerCase().includes(searchText.toLowerCase()) || 
+     note.content.toLowerCase().includes(searchText.toLowerCase()) ||
+     note.chapter.toLowerCase().includes(searchText.toLowerCase())) &&
+    (filterSubject === '' || note.subject.toLowerCase().includes(filterSubject.toLowerCase())) &&
+    (filterChapter === '' || note.chapter.toLowerCase().includes(filterChapter.toLowerCase())) &&
+    (filterContent === '' || note.content.toLowerCase().includes(filterContent.toLowerCase())) &&
+    (filterDate === '' || new Date(note.timestamp).toDateString() === new Date(filterDate).toDateString())
   );
+
+  // Get unique subjects and chapters for filter options
+  const uniqueSubjects = [...new Set(notesData.map(note => note.subject))];
+  const uniqueChapters = [...new Set(notesData.map(note => note.chapter))];
 
   return (
     <div className="h-full w-full flex flex-col bg-white" style={{ height: '100vh' }}>
@@ -262,6 +302,16 @@ const Notes = () => {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Chapter</label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                    placeholder="Enter chapter"
+                    value={newNoteChapter}
+                    onChange={(e) => setNewNoteChapter(e.target.value)}
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Note Content</label>
                   <textarea
                     className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none"
@@ -290,7 +340,9 @@ const Notes = () => {
             {filteredNotes.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-slate-500">
-                  {searchText ? 'No notes match your search.' : 'No notes yet. Create your first note!'}
+                  {searchText || filterSubject || filterChapter || filterContent || filterDate 
+                    ? 'No notes match your filters.' 
+                    : 'No notes yet. Create your first note!'}
                 </p>
               </div>
             ) : (
@@ -298,13 +350,85 @@ const Notes = () => {
                 <table className="min-w-full divide-y divide-slate-200">
                   <thead className="bg-slate-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Subject</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Note Content</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Last Updated</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        <div className="flex items-center space-x-2">
+                          <span>Subject</span>
+                          <button onClick={() => toggleFilter('subject')}>
+                            <Filter size={16} className="text-slate-400 hover:text-indigo-500" />
+                          </button>
+                        </div>
+                        {showFilter.subject && (
+                          <div className="absolute mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-lg p-2 z-10">
+                            <input
+                              type="text"
+                              placeholder="Filter subjects..."
+                              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                              value={filterSubject}
+                              onChange={(e) => setFilterSubject(e.target.value)}
+                            />
+                          </div>
+                        )}
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        <div className="flex items-center space-x-2">
+                          <span>Chapter</span>
+                          <button onClick={() => toggleFilter('chapter')}>
+                            <Filter size={16} className="text-slate-400 hover:text-indigo-500" />
+                          </button>
+                        </div>
+                        {showFilter.chapter && (
+                          <div className="absolute mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-lg p-2 z-10">
+                            <input
+                              type="text"
+                              placeholder="Filter chapters..."
+                              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                              value={filterChapter}
+                              onChange={(e) => setFilterChapter(e.target.value)}
+                            />
+                          </div>
+                        )}
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        <div className="flex items-center space-x-2">
+                          <span>Note Content</span>
+                          <button onClick={() => toggleFilter('content')}>
+                            <Filter size={16} className="text-slate-400 hover:text-indigo-500" />
+                          </button>
+                        </div>
+                        {showFilter.content && (
+                          <div className="absolute mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-lg p-2 z-10">
+                            <input
+                              type="text"
+                              placeholder="Filter content..."
+                              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                              value={filterContent}
+                              onChange={(e) => setFilterContent(e.target.value)}
+                            />
+                          </div>
+                        )}
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        <div className="flex items-center space-x-2">
+                          <span>Last Updated</span>
+                          <button onClick={() => toggleFilter('date')}>
+                            <Filter size={16} className="text-slate-400 hover:text-indigo-500" />
+                          </button>
+                        </div>
+                        {showFilter.date && (
+                          <div className="absolute mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-lg p-2 z-10">
+                            <input
+                              type="date"
+                              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                              value={filterDate}
+                              onChange={(e) => setFilterDate(e.target.value)}
+                            />
+                          </div>
+                        )}
+                      </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-slate-100">
+                  <tbody className="bg-white divide-y divide-slate-200">
                     {filteredNotes.map((note) => (
                       <tr key={note.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -315,14 +439,25 @@ const Notes = () => {
                             <span className="font-medium text-slate-800">{note.subject}</span>
                           </div>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-slate-600">{note.chapter}</span>
+                        </td>
                         <td className="px-6 py-4">
                           {editingNote === note.id ? (
-                            <textarea
-                              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none"
-                              value={editNoteContent}
-                              onChange={(e) => setEditNoteContent(e.target.value)}
-                              rows={3}
-                            />
+                            <div className="space-y-2">
+                              <input
+                                type="text"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                                value={editNoteChapter}
+                                onChange={(e) => setEditNoteChapter(e.target.value)}
+                              />
+                              <textarea
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none"
+                                value={editNoteContent}
+                                onChange={(e) => setEditNoteContent(e.target.value)}
+                                rows={3}
+                              />
+                            </div>
                           ) : (
                             <div className="text-sm text-slate-600">
                               {expandedNotes[note.id] || note.content.length < 100 ? 

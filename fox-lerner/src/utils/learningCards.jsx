@@ -2,21 +2,21 @@
 export const learningCards = [
   {
     id: 1,
-    category: 'Mathematics',
-    title: 'How do limits define continuity?',
-    description: 'Master the foundational concept of limits and continuity—your first step toward all differential calculus topics in the Chennai college syllabus?',
-    image: 'https://i.natgeofe.com/n/54513f4a-e15c-4275-9634-ba5bbbe0f9dd/IMG_3800-Amperima_sp-ventral-EDITED.jpg',
-    color: 'bg-blue-50',
-    iconColor: 'text-blue-600'
-  },
-  {
-    id: 2,
     category: 'Data Structures',
     title: 'Implementing Binary Search Trees',
     description: 'Explore the properties and implementation of binary search trees, one of the most versatile data structures used in software development, databases, and search algorithms.',
     image: '/api/placeholder/400/320',
     color: 'bg-green-50',
     iconColor: 'text-green-600'
+  },
+  {
+    id: 2,
+    category: 'Mathematics',
+    title: 'How do limits define continuity?',
+    description: 'Master the foundational concept of limits and continuity—your first step toward all differential calculus topics in the Chennai college syllabus?',
+    image: 'https://i.natgeofe.com/n/54513f4a-e15c-4275-9634-ba5bbbe0f9dd/IMG_3800-Amperima_sp-ventral-EDITED.jpg',
+    color: 'bg-blue-50',
+    iconColor: 'text-blue-600'
   },
   {
     id: 3,

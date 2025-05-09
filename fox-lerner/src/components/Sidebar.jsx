@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Home, Book, Calendar, MessageSquare, Settings, LogOut, ChevronDown, Plus, X, FileText, MoreHorizontal, Edit2, Trash2, FileCheck } from 'lucide-react';
+import VelsLogo from '../assets/Vels_University_logo-removebg-preview.png'; // Adjusted path to go up one directory
 
 const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialProjects = [] }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -7,6 +8,7 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
   const [activeProject, setActiveProject] = useState(null);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectSubject, setNewProjectSubject] = useState('');
   const [projects, setProjects] = useState(initialProjects);
   const [expandedItems, setExpandedItems] = useState({ schedule: false });
   const [editingProject, setEditingProject] = useState(null);
@@ -15,118 +17,83 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
   
   const actionsMenuRef = useRef(null);
   
-  // Sync projects with parent component when they change
+  const subjects = ["Mathematics", "Computer Science"];
+  
   useEffect(() => {
     if (onProjectsUpdated && projects !== initialProjects) {
       onProjectsUpdated(projects);
     }
   }, [projects]);
 
-  // Initialize from props when they change
   useEffect(() => {
     if (initialProjects.length && projects.length === 0) {
       setProjects(initialProjects);
     }
   }, [initialProjects]);
   
-  // Close actions menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target)) {
         setShowActionsForProject(null);
       }
     };
-    
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
   
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'learning', label: 'Acadamics', icon: Book },
     { id: 'schedule', label: 'Study Resources', icon: Calendar, hasAction: true, actionIcon: Plus, hasSubItems: true },
-    // { id: 'chat', label: 'Chat', icon: MessageSquare },
-    { id: 'assessment', label: 'Assessments', icon: FileCheck }, // Fixed ID and added proper icon
+    { id: 'assessment', label: 'Assessments', icon: FileCheck },
     { id: 'notes', label: 'Notes', icon: FileCheck }, 
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
   
   const handleNavItemClick = (itemId) => {
-    // Toggle expanded state if item has subitems
     if (navItems.find(item => item.id === itemId)?.hasSubItems) {
-      setExpandedItems(prev => ({
-        ...prev,
-        [itemId]: !prev[itemId]
-      }));
+      setExpandedItems(prev => ({ ...prev, [itemId]: !prev[itemId] }));
       return;
     }
-    
     setActiveItem(itemId);
     setActiveProject(null);
-    if (onNavItemClick) {
-      onNavItemClick(itemId);
-    }
+    if (onNavItemClick) onNavItemClick(itemId);
   };
 
   const handleProjectClick = (projectId) => {
-    // Find the project by ID to get its name
     const project = projects.find(p => p.id === projectId);
-    
     setActiveProject(projectId);
     setActiveItem(null);
-    if (onNavItemClick) {
-      // Pass both the project ID and name to the parent component
-      onNavItemClick(`project_${projectId}`, project ? project.name : 'Unnamed Project');
-    }
+    if (onNavItemClick) onNavItemClick(`project_${projectId}`, project ? project.name : 'Unnamed Project');
   };
   
   const handleActionClick = (e, itemId) => {
-    e.stopPropagation(); // Prevent triggering the nav item click
-    // Open project creation modal
+    e.stopPropagation();
     setShowProjectModal(true);
     setEditingProject(null);
     setNewProjectName('');
+    setNewProjectSubject('');
     setIsEditing(false);
   };
   
-  const toggleSidebar = () => {
-    setIsCollapsed(!isCollapsed);
-  };
+  const toggleSidebar = () => setIsCollapsed(!isCollapsed);
   
   const createNewProject = () => {
     if (newProjectName.trim()) {
       if (isEditing && editingProject) {
-        // Update existing project
         const updatedProjects = projects.map(p => 
-          p.id === editingProject ? { ...p, name: newProjectName } : p
+          p.id === editingProject ? { ...p, name: newProjectName, subject: newProjectSubject } : p
         );
         setProjects(updatedProjects);
       } else {
-        // Create new project
-        const newProject = {
-          id: `project_${Date.now()}`,
-          name: newProjectName
-        };
-        
+        const newProject = { id: `project_${Date.now()}`, name: newProjectName, subject: newProjectSubject };
         const updatedProjects = [...projects, newProject];
         setProjects(updatedProjects);
-        
-        // Notify parent component
-        if (onProjectAdded) {
-          onProjectAdded(newProject);
-        }
-        
-        // Auto-expand the Study Resources section
-        setExpandedItems(prev => ({
-          ...prev,
-          schedule: true
-        }));
+        if (onProjectAdded) onProjectAdded(newProject);
+        setExpandedItems(prev => ({ ...prev, schedule: true }));
       }
-      
-      // Reset and close modal
       setNewProjectName('');
+      setNewProjectSubject('');
       setShowProjectModal(false);
       setEditingProject(null);
       setIsEditing(false);
@@ -144,6 +111,7 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
     if (project) {
       setEditingProject(projectId);
       setNewProjectName(project.name);
+      setNewProjectSubject(project.subject || '');
       setShowProjectModal(true);
       setIsEditing(true);
     }
@@ -154,7 +122,6 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
     e.stopPropagation();
     const updatedProjects = projects.filter(p => p.id !== projectId);
     setProjects(updatedProjects);
-    
     if (activeProject === projectId) {
       setActiveProject(null);
       setActiveItem('schedule');
@@ -164,32 +131,24 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
   
   return (
     <>
-      <div
-        className={`bg-slate-50 rounded-xl shadow-md m-3 flex flex-col transition-all duration-300 ease-in-out ${
-          isCollapsed ? 'w-20' : 'w-72'
-        }`}
-      >
-        {/* Logo and Title with fluid design */}
+      <div className={`bg-slate-50 rounded-xl shadow-md m-3 flex flex-col transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-72'}`}>
         <div className="p-4 flex items-center justify-between rounded-t-xl bg-blue-50 relative">
           <div className="flex items-center space-x-3">
-            <div className="h-10 w-10 rounded-lg bg-indigo-500 flex items-center justify-center flex-shrink-0 shadow-sm">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z" fill="white" fillOpacity="0.2"/>
-                <path d="M17.5 12c0 3.038-2.462 5.5-5.5 5.5S6.5 15.038 6.5 12 8.962 6.5 12 6.5s5.5 2.462 5.5 5.5z" fill="white"/>
-                <path d="M14 8l-4 8M10 8l4 8" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
+            <div className="h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm">
+              <img
+                src={VelsLogo}
+                alt="VELS Academy Logo"
+                className="h-full w-full object-contain"
+              />
             </div>
-            {!isCollapsed && <h1 className="font-semibold text-lg text-slate-700">Genfox AI</h1>}
+            {!isCollapsed && <h1 className="font-semibold text-lg text-slate-700">VELS Academy</h1>}
           </div>
-
-          {/* Enhanced Toggle Button */}
           <button
             onClick={toggleSidebar}
             className="w-8 h-8 flex items-center justify-center rounded-full bg-gradient-to-br from-indigo-50 to-blue-100 shadow-sm hover:shadow transition-all duration-300 group border border-indigo-100"
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             <div className="relative w-5 h-5 flex items-center justify-center overflow-hidden">
-              {/* Animated Arrow */}
               <div className={`transform transition-all duration-300 ease-in-out ${isCollapsed ? 'translate-x-0.5' : '-translate-x-0.5'}`}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" 
                      className={`transform transition-transform duration-300 ${isCollapsed ? 'rotate-180' : 'rotate-0'}`}
@@ -204,23 +163,16 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
                 </svg>
               </div>
             </div>
-            
-            {/* Subtle hover effect circle */}
             <div className="absolute inset-0 rounded-full bg-indigo-500 opacity-0 scale-0 group-hover:opacity-10 group-hover:scale-100 transition-all duration-300"></div>
           </button>
         </div>
         
-        {/* Navigation Items with floating effect */}
         <nav className="mt-4 flex-1 px-3">
           {navItems.map((item) => (
             <React.Fragment key={item.id}>
               <div
                 className={`flex items-center px-4 py-3 my-1 cursor-pointer transition-all duration-200 rounded-xl relative
-                  ${
-                    activeItem === item.id && !activeProject
-                      ? 'bg-blue-50 text-indigo-600 shadow-sm transform translate-x-1'
-                      : 'text-slate-600 hover:bg-slate-100 hover:transform hover:-translate-y-0.5'
-                  }`}
+                  ${activeItem === item.id && !activeProject ? 'bg-blue-50 text-indigo-600 shadow-sm transform translate-x-1' : 'text-slate-600 hover:bg-slate-100 hover:transform hover:-translate-y-0.5'}`}
                 onClick={() => handleNavItemClick(item.id)}
               >
                 <div className={`flex-shrink-0 ${activeItem === item.id && !activeProject ? 'text-indigo-600' : 'text-slate-500'}`}>
@@ -246,27 +198,23 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
                     </div>
                   </div>
                 )}
-                {/* We're removing the plus icon when sidebar is collapsed */}
               </div>
-              
-              {/* Sub items / Projects */}
               {!isCollapsed && item.id === 'schedule' && expandedItems.schedule && projects.length > 0 && (
                 <div className="ml-4 pl-4 border-l border-slate-200 my-1">
                   {projects.map((project) => (
                     <div
                       key={project.id}
                       className={`flex items-center px-3 py-2 cursor-pointer rounded-lg text-sm transition-all duration-200
-                        ${
-                          activeProject === project.id
-                            ? 'bg-blue-50 text-indigo-600 shadow-sm transform translate-x-1'
-                            : 'text-slate-600 hover:bg-slate-100'
-                        }`}
+                        ${activeProject === project.id ? 'bg-blue-50 text-indigo-600 shadow-sm transform translate-x-1' : 'text-slate-600 hover:bg-slate-100'}`}
                       onClick={() => handleProjectClick(project.id)}
                     >
                       <FileText size={14} className={activeProject === project.id ? 'text-indigo-500' : 'text-slate-400'} />
                       <span className={`ml-2 ${activeProject === project.id ? 'font-medium' : ''} flex-1`}>{project.name}</span>
-                      
-                      {/* Project actions */}
+                      {project.subject && (
+                        <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-md mr-2">
+                          {project.subject}
+                        </span>
+                      )}
                       <div className="relative">
                         <button 
                           className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
@@ -274,8 +222,6 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
                         >
                           <MoreHorizontal size={14} />
                         </button>
-                        
-                        {/* Actions dropdown */}
                         {showActionsForProject === project.id && (
                           <div 
                             ref={actionsMenuRef}
@@ -302,8 +248,6 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
                   ))}
                 </div>
               )}
-              
-              {/* Collapsed view mini indicator for sub-items */}
               {isCollapsed && item.id === 'schedule' && projects.length > 0 && (
                 <div className="flex justify-center my-1">
                   <div className="w-1 h-1 bg-slate-300 rounded-full"></div>
@@ -313,20 +257,17 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
           ))}
         </nav>
         
-        {/* User Profile with design matching dashboard */}
         <div className="p-4 mx-3 mb-3 rounded-xl bg-blue-50 shadow-sm">
           <div className="flex items-center space-x-3">
             <div className="h-10 w-10 rounded-full bg-indigo-500 text-white flex items-center justify-center flex-shrink-0">
-              <span className="font-semibold">JS</span>
+              <span className="font-semibold">R</span>
             </div>
             {!isCollapsed && (
               <div>
-                <p className="font-medium text-slate-700">John Smith</p>
-                <p className="text-xs text-slate-500">Free Plan</p>
+                <p className="font-medium text-slate-700">Rahul </p>
               </div>
             )}
           </div>
-          
           {!isCollapsed && (
             <button className="mt-4 w-full flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg py-2 text-sm transition-all duration-200 hover:shadow hover:border-blue-200 hover:transform hover:-translate-y-0.5 cursor-pointer">
               <LogOut size={16} />
@@ -336,7 +277,6 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
         </div>
       </div>
 
-      {/* Project Creation/Edit Modal */}
       {showProjectModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-lg w-96 overflow-hidden transform transition-all animate-fade-in">
@@ -351,7 +291,6 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
                 <X size={20} />
               </button>
             </div>
-            
             <div className="px-6 py-4">
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
@@ -362,14 +301,23 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
                   autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newProjectName.trim()) {
-                      createNewProject();
-                    }
-                  }}
                 />
               </div>
-              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Select Subject</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                  value={newProjectSubject}
+                  onChange={(e) => setNewProjectSubject(e.target.value)}
+                >
+                  <option value="">Select a subject</option>
+                  {subjects.map((subject) => (
+                    <option key={subject} value={subject}>
+                      {subject}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="mt-6 flex space-x-3">
                 <button
                   className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors cursor-pointer"
@@ -392,4 +340,5 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
     </>
   );
 };
+
 export default Sidebar;

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { BookOpen } from 'lucide-react';
-import ChatInterface from './components/chatInterface';
+import ChatInterface from './components/ChatInterface';
 import LearningModule from './components/LearningModule';
 import DashboardView from './components/DashboardView';
 import Sidebar from './components/Sidebar';
@@ -8,6 +8,7 @@ import Syllabus from './components/Syllabus';
 import ProjectDashboard from './components/ProjectDashboard';
 import Assessment from './components/Assessment';
 import Notes from './components/Notes';
+import QuizModal from './components/QuizModal';
 
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -17,7 +18,8 @@ const App = () => {
   const [showSyllabus, setShowSyllabus] = useState(true);
   const [activeProject, setActiveProject] = useState(null);
   const [projectName, setProjectName] = useState('');
-  const [projects, setProjects] = useState([]); // Track projects at the App level
+  const [projects, setProjects] = useState([]);
+  const [selectedAssessment, setSelectedAssessment] = useState(null); // New state for quiz
 
   // State for notes
   const [notesData, setNotesData] = useState([
@@ -67,28 +69,32 @@ const App = () => {
     setIsLoggedIn(true);
   };
 
-const handleNavItemClick = (itemId, projectNameParam) => {
-  if (itemId.startsWith('project_')) {
-    const projectId = itemId;
-    setProjectName(projectNameParam || 'Unnamed Project');
-    setActiveProject(projectId);
-    setCurrentView('project');
-  } else {
-    if (itemId === 'learning') {
-      setShowSyllabus(false); // Initially hide syllabus to show subjects/cards first
+  const handleNavItemClick = (itemId, projectNameParam) => {
+    if (itemId.startsWith('project_')) {
+      const projectId = itemId;
+      setProjectName(projectNameParam || 'Unnamed Project');
+      setActiveProject(projectId);
+      setCurrentView('project');
+    } else {
+      if (itemId === 'learning') {
+        setShowSyllabus(false);
+      }
+      setCurrentView(itemId);
+      if (itemId !== 'chat') {
+        setChatQuestion('');
+        setSelectedLesson(null);
+      }
+      setActiveProject(null);
+      setSelectedAssessment(null); // Reset assessment when navigating
     }
+  };
 
-    setCurrentView(itemId);
-
-    if (itemId !== 'chat') {
-      setChatQuestion('');
-      setSelectedLesson(null);
+  const handleNavigate = (view, data) => {
+    setCurrentView(view);
+    if (view === 'quiz' && data?.assessment) {
+      setSelectedAssessment(data.assessment);
     }
-
-    setActiveProject(null);
-  }
-};
-
+  };
 
   const handleProjectAdded = (newProject) => {
     setProjects([...projects, newProject]);
@@ -123,6 +129,11 @@ const handleNavItemClick = (itemId, projectNameParam) => {
   const handleBackToProjects = () => {
     setCurrentView('schedule');
     setActiveProject(null);
+  };
+
+  const handleBackToAssessment = () => {
+    setCurrentView('assessment');
+    setSelectedAssessment(null);
   };
 
   const LoginPage = () => {
@@ -256,22 +267,28 @@ const handleNavItemClick = (itemId, projectNameParam) => {
           <LearningModule onCardClick={handleCardClick} />
         )}
         {currentView === 'chat' && (
-<ChatInterface
-  category="Your Category"
-  categoryIcon={<YourIcon />}
-  categoryColor="your-color-class"
-  initialQuestion={chatQuestion}
-  selectedLesson={selectedLesson}
-  onBackClick={handleBackToSyllabus}
-  addNote={addNote} // <-- must be correctly passed here
-  onNavigate={setCurrentView}
-/>
+          <ChatInterface
+            category="Your Category"
+            categoryIcon={<BookOpen size={24} />}
+            categoryColor="bg-blue-50 text-blue-500"
+            initialQuestion={chatQuestion}
+            selectedLesson={selectedLesson}
+            onBackClick={handleBackToSyllabus}
+            addNote={addNote}
+            onNavigate={handleNavigate}
+          />
         )}
         {currentView === 'dashboard' && (
           <DashboardView />
         )}
         {currentView === 'assessment' && (
-          <Assessment />
+          <Assessment 
+            category="React Development"
+            categoryIcon={<BookOpen size={24} />}
+            categoryColor="bg-blue-50 text-blue-500"
+            onBackClick={() => handleNavItemClick('dashboard')}
+            onNavigate={handleNavigate}
+          />
         )}
         {currentView === 'notes' && (
           <Notes notesData={notesData} setNotesData={setNotesData} />
@@ -290,6 +307,12 @@ const handleNavItemClick = (itemId, projectNameParam) => {
           <div className="flex-1 bg-slate-50 p-6 overflow-y-auto">
             <h1 className="text-2xl font-semibold text-slate-700">Settings View</h1>
           </div>
+        )}
+        {currentView === 'quiz' && (
+          <QuizModal
+            assessment={selectedAssessment}
+            onBackClick={handleBackToAssessment}
+          />
         )}
       </div>
     </div>

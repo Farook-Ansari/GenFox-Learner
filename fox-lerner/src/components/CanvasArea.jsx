@@ -166,7 +166,7 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
     }
   };
 
-  // Book View Content Renderer - Modified to remove code highlighting effects
+  // Book View Content Renderer - Modified with fixed header
   const renderBookContent = () => {
     const getPageBackground = () => {
       switch (currentContentType) {
@@ -220,8 +220,8 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
 
     return (
       <div className={`w-full h-full ${getPageBackground()} flex flex-col`}>
-        {/* Book header */}
-        <div className="p-6 pb-0">
+        {/* Book header - FIXED position */}
+        <div className="sticky top-0 z-10 p-6 pb-0 bg-white bg-opacity-95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
           <div className="mb-6 flex justify-between items-center">
             <h1 className="text-xl font-serif text-gray-800 font-medium">{currentTitle}</h1>
             <div className="flex items-center gap-3">
@@ -233,7 +233,7 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
               >
                 <Copy size={16} />
                 {copied && (
-                  <span className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-3 py-1 rounded-md shadow-lg z-10">
+                  <span className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-3 py-1 rounded-md shadow-lg z-20">
                     Copied!
                   </span>
                 )}
@@ -255,20 +255,17 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
               </button>
             </div>
           </div>
-          </div>
+        </div>
         
-        {/* Book content */}
+        {/* Book content - Scrollable area */}
         <div className="flex-1 overflow-auto p-6 pt-4">
-          <div className="w-full h-full">
-          Here's a simpler explanation of: "This is a simulated response about Advanced Topics: Cutting-edge Research using the memorize approach in chat1. In a real implementation, this would be an actual response from your AI service."
-          🦊 Fox explanation:This means the AI assistant is giving you a placeholder response about Advanced Topics: Cutting-edge Research. In a real app, this would be replaced with an actual helpful answer based on your question. <br /> <br />
-          Here's a simpler explanation of: "This is a simulated response about Advanced Topics: Cutting-edge Research using the memorize approach in chat1. In a real implementation, this would be an actual response from your AI service."
-          🦊 Fox explanation:This means the AI assistant is giving you a placeholder response about Advanced Topics: Cutting-edge Research. In a real app, this would be replaced with an actual helpful answer based on your question.
+          <div className="w-full">
+            {formatCodeForBook()}
           </div>
         </div>
         
-        {/* Book footer */}
-        <div className="p-4 border-t border-gray-200 bg-white bg-opacity-60 backdrop-blur-sm flex justify-between items-center text-xs text-gray-500">
+        {/* Book footer - FIXED position at bottom */}
+        <div className="sticky bottom-0 p-4 border-t border-gray-200 bg-white bg-opacity-90 backdrop-blur-sm flex justify-between items-center text-xs text-gray-500 shadow-inner">
           <div className="flex items-center gap-4">
             <button 
               onClick={goBack} 
@@ -295,14 +292,14 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
     );
   };
 
-  // Canvas View Content Renderer (Original)
+  // Canvas View Content Renderer (Updated with fixed header and footer)
   const renderCanvasContent = () => {
     switch (currentContentType) {
       case 'code':
         return (
           <div className="relative h-full">
             {currentLanguage && (
-              <div className="absolute top-4 right-4 bg-opacity-80 backdrop-blur-sm bg-gray-800 text-gray-200 px-3 py-1 rounded-full text-xs font-mono shadow-md">
+              <div className="absolute top-4 right-4 bg-opacity-80 backdrop-blur-sm bg-gray-800 text-gray-200 px-3 py-1 rounded-full text-xs font-mono shadow-md z-10">
                 {getLanguageLabel()}
               </div>
             )}
@@ -372,7 +369,7 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
     );
   }
 
-  // Render canvas mode (original layout)
+  // Render canvas mode (updated layout with fixed header and footer)
   const isDarkMode = currentContentType === 'code';
   const headerBg = isDarkMode ? 'bg-gray-800' : 'bg-white';
   const headerText = isDarkMode ? 'text-gray-100' : 'text-slate-700';
@@ -386,7 +383,8 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
 
   return (
     <div className={`${containerStyles} ${isDarkMode ? 'bg-gray-900' : 'bg-white'} overflow-hidden transition-all duration-200 ${animationClass}`}>
-      <div className={`px-4 py-3 flex justify-between items-center ${headerBg} ${headerText} ${borderColor} border-b backdrop-blur-sm bg-opacity-90`}>
+      {/* Fixed header */}
+      <div className={`sticky top-0 z-20 px-4 py-3 flex justify-between items-center ${headerBg} ${headerText} ${borderColor} border-b backdrop-blur-sm bg-opacity-90`}>
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-opacity-20 backdrop-blur-sm">
             {getIcon()}
@@ -467,18 +465,20 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
       </div>
       
       {showTooltip && (
-        <div className="absolute top-12 right-4 bg-black text-white text-xs px-3 py-1 rounded-md shadow-lg z-10 transition-opacity duration-200">
+        <div className="absolute top-12 right-4 bg-black text-white text-xs px-3 py-1 rounded-md shadow-lg z-30 transition-opacity duration-200">
           {showTooltip}
         </div>
       )}
       
-      <div ref={contentRef} className="flex-1 overflow-hidden relative transition-all duration-200">
+      {/* Content area - Takes remaining space and allows scrolling */}
+      <div ref={contentRef} className="flex-1 overflow-auto relative transition-all duration-200">
         {/* Only render the canvas content when in canvas view mode AND the canvas view has been activated */}
         {hasActivatedCanvasView && renderCanvasContent()}
       </div>
       
+      {/* Fixed footer for code view */}
       {currentContentType === 'code' && viewMode === 'canvas' && hasActivatedCanvasView && (
-        <div className="bg-gray-800 text-gray-400 text-xs py-2 px-4 border-t border-gray-700 flex justify-between items-center">
+        <div className="sticky bottom-0 z-20 bg-gray-800 text-gray-400 text-xs py-2 px-4 border-t border-gray-700 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-gray-400"></div>
             <span>{currentContent.split('\n').length} lines</span>

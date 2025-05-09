@@ -48,7 +48,7 @@ const DashboardView = () => {
           Hey, Rahul! What would you like <br />to learn today?
         </h1>
         <p className="text-slate-500 max-w-1xl mx-auto text-lg animate-fadeIn" >
-        You've been enrolled to 1st year sylabus. Let's get started with your learning journey.
+        You've been enrolled to 1st year Engineering- Computer Science. Let's get started with your learning journey.
         </p>
       </div>
 

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, BookOpen, Award, X, UploadCloud, FileText, Send, Smile, ChevronDown, ChevronUp } from 'lucide-react';
 
-const Assessment = ({ category, categoryIcon, categoryColor, onBackClick }) => {
+const Assessment = ({ category, categoryIcon, categoryColor, onBackClick, onNavigate }) => {
   // State for text input
   const [inputText, setInputText] = useState('');
   const inputRef = useRef(null);
@@ -30,6 +30,13 @@ const Assessment = ({ category, categoryIcon, categoryColor, onBackClick }) => {
     }));
   };
 
+  // Handle click on an assessment
+  const handleAssessmentClick = (assessment) => {
+    if (assessment.title === 'Application Design' && onNavigate) {
+      onNavigate('quiz', { assessment });
+    }
+  };
+
   // Example assessment data organized by subjects
   const assessmentData = [
     {
@@ -47,7 +54,7 @@ const Assessment = ({ category, categoryIcon, categoryColor, onBackClick }) => {
       assessments: [
         { id: 201, title: 'Quiz: Fundamental Theories', type: 'Multiple Choice', questions: 15, duration: '30 minutes', completed: true, score: 90 },
         { id: 202, title: 'Case Study Analysis', type: 'Written Submission', questions: 3, duration: '2 hours', completed: true, score: 88 },
-        { id: 203, title: 'Practical: Application Design', type: 'Project', questions: 1, duration: '3 hours', completed: false, score: null },
+        { id: 203, title: 'Application Design', type: 'Project', questions: 1, duration: '3 hours', completed: false, score: null },
         { id: 204, title: 'Peer Review', type: 'Evaluation', questions: 5, duration: '1 hour', completed: false, score: null }
       ]
     },
@@ -302,7 +309,8 @@ const Assessment = ({ category, categoryIcon, categoryColor, onBackClick }) => {
                       {subject.assessments.map(assessment => (
                         <div 
                           key={assessment.id} 
-                          className="p-4 hover:bg-slate-50 transition-colors"
+                          className="p-4 hover:bg-slate-50 transition-colors cursor-pointer"
+                          onClick={() => handleAssessmentClick(assessment)}
                         >
                           <div className="flex justify-between items-center">
                             <div className="flex items-center">
