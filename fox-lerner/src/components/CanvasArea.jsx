@@ -22,35 +22,36 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
   const [historyIndex, setHistoryIndex] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
   const [showTooltip, setShowTooltip] = useState('');
-  const [viewMode, setViewMode] = useState('book'); 
-  const contentRef = useRef(null);
-  const bookCodeRef = useRef(null);
+  const [viewMode, setViewMode] = useState('book');
   const [pageFlipAnimation, setPageFlipAnimation] = useState(false);
   const [hasActivatedCanvasView, setHasActivatedCanvasView] = useState(false);
+  const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [quizFeedback, setQuizFeedback] = useState('');
+  const contentRef = useRef(null);
+  const bookCodeRef = useRef(null);
 
   useEffect(() => {
-    // Notify parent component of initial book mode
     if (onSwitchToBook && viewMode === 'book') {
       onSwitchToBook(currentContent, currentTitle, currentContentType, currentLanguage);
     }
   }, []);
 
   useEffect(() => {
-    if (content !== currentContent || contentType !== currentContentType || 
+    if (content !== currentContent || contentType !== currentContentType ||
         language !== currentLanguage || title !== currentTitle) {
       setCurrentContent(content);
       setCurrentContentType(contentType);
       setCurrentLanguage(language);
       setCurrentTitle(title);
-      
       const newHistoryItem = { content, contentType, language, title };
       setHistory([...history.slice(0, historyIndex + 1), newHistoryItem]);
       setHistoryIndex(historyIndex + 1);
+      setSelectedAnswer(null);
+      setQuizFeedback('');
     }
   }, [content, contentType, language, title]);
 
   useEffect(() => {
-    // Apply code highlighting ONLY in canvas view mode
     if (currentContentType === 'code' && viewMode === 'canvas') {
       Prism.highlightAll();
     }
@@ -65,7 +66,6 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
   const downloadContent = () => {
     const fileExtension = getFileExtension(currentContentType, currentLanguage);
     const fileName = `${currentTitle.toLowerCase().replace(/\s+/g, '-')}.${fileExtension}`;
-    
     const element = document.createElement('a');
     const file = new Blob([currentContent], { type: 'text/plain' });
     element.href = URL.createObjectURL(file);
@@ -100,6 +100,8 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
       setCurrentLanguage(previousItem.language);
       setCurrentTitle(previousItem.title);
       setHistoryIndex(newIndex);
+      setSelectedAnswer(null);
+      setQuizFeedback('');
     }
   };
 
@@ -112,6 +114,8 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
       setCurrentLanguage(nextItem.language);
       setCurrentTitle(nextItem.title);
       setHistoryIndex(newIndex);
+      setSelectedAnswer(null);
+      setQuizFeedback('');
     }
   };
 
@@ -120,18 +124,13 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
   };
 
   const toggleViewMode = () => {
-    // Add page flip animation
     setPageFlipAnimation(true);
     setTimeout(() => {
       const newMode = viewMode === 'canvas' ? 'book' : 'canvas';
       setViewMode(newMode);
-      
-      // Mark canvas view as activated if switching to it
       if (newMode === 'canvas') {
         setHasActivatedCanvasView(true);
       }
-      
-      // Call the parent component callback if provided
       if (onSwitchToBook && newMode === 'book') {
         onSwitchToBook(currentContent, currentTitle, currentContentType, currentLanguage);
       }
@@ -166,7 +165,70 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
     }
   };
 
-  // Book View Content Renderer - Modified with fixed header
+  const parseContent = () => {
+    const lines = currentContent.split('\n');
+    let quiz = { question: '', options: [] };
+    let misconception = '';
+    let relatedConcepts = '';
+    let currentSection = '';
+
+    lines.forEach(line => {
+      if (line.startsWith('Quiz')) {
+        currentSection = 'quiz';
+      } else if (line.startsWith('Misconception')) {
+        currentSection = 'misconception';
+      } else if (line.startsWith('Related Concepts')) {
+        currentSection = 'relatedConcepts';
+      } else if (currentSection === 'quiz') {
+        if (line.trim() && !quiz.question) {
+          quiz.question = line.trim();
+        } else if (line.startsWith('- ') && line.trim().length > 2) {
+          quiz.options.push(line.replace('- ', '').trim());
+        }
+      } else if (currentSection === 'misconception') {
+        misconception += line + '\n';
+      } else if (currentSection === 'relatedConcepts') {
+        relatedConcepts += line + '\n';
+      }
+    });
+
+    return { quiz, misconception, relatedConcepts };
+  };
+
+  const renderQuiz = (quiz) => {
+    const correctAnswer = '30';
+    const handleAnswerSelect = (option) => {
+      setSelectedAnswer(option);
+      setQuizFeedback(option === correctAnswer ? 'Correct! arr[2] is 30.' : `Incorrect. The correct answer is 30.`);
+    };
+
+    return (
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-slate-800 mb-2">{quiz.question}</h3>
+        <div className="space-y-2">
+          {quiz.options.map((option, index) => (
+            <label key={index} className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="radio"
+                name="quiz"
+                value={option}
+                checked={selectedAnswer === option}
+                onChange={() => handleAnswerSelect(option)}
+                className="form-radio text-indigo-600"
+              />
+              <span className="text-sm text-slate-700">{option}</span>
+            </label>
+          ))}
+        </div>
+        {quizFeedback && (
+          <p className={`mt-2 text-sm ${quizFeedback.includes('Correct') ? 'text-green-600' : 'text-red-600'}`}>
+            {quizFeedback}
+          </p>
+        )}
+      </div>
+    );
+  };
+
   const renderBookContent = () => {
     const getPageBackground = () => {
       switch (currentContentType) {
@@ -178,7 +240,6 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
       }
     };
 
-    // Format content for book view - modified to use simple text display without Prism highlighting
     const formatCodeForBook = () => {
       if (currentContentType === 'code') {
         return (
@@ -191,8 +252,7 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
               </div>
               <div className="flex-1 text-center">{getLanguageLabel()}</div>
             </div>
-            {/* Simple code display without Prism highlighting */}
-            <pre className="p-4 overflow-auto text-sm bg-white">
+            <pre className="p-4 overflow-auto text-sm bg-white custom-scrollbar">
               <code ref={bookCodeRef} className="font-mono text-gray-800">{currentContent}</code>
             </pre>
           </div>
@@ -210,9 +270,46 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
           </div>
         );
       } else {
+        const { quiz, misconception, relatedConcepts } = parseContent();
         return (
-          <div className="whitespace-pre-wrap font-serif text-gray-800 leading-relaxed">
-            {currentContent}
+          <div className="space-y-6">
+            {currentContent.split('\n\n').map((section, index) => {
+              if (section.startsWith('Quiz')) {
+                return (
+                  <div key={index}>
+                    <h2 className="text-xl font-semibold text-slate-800 mb-4">Quiz</h2>
+                    {renderQuiz(quiz)}
+                  </div>
+                );
+              } else if (section.startsWith('Misconception')) {
+                return (
+                  <div key={index}>
+                    <hr className="border-t border-slate-200 my-6" />
+                    <h2 className="text-xl font-semibold text-slate-800 mb-4">Misconception</h2>
+                    <div className="whitespace-pre-wrap font-serif text-gray-800 leading-relaxed">
+                      {misconception}
+                    </div>
+                  </div>
+                );
+              } else if (section.startsWith('Related Concepts')) {
+                return (
+                  <div key={index}>
+                    <hr className="border-t border-slate-200 my-6" />
+                    <h2 className="text-xl font-semibold text-slate-800 mb-4">Related Concepts</h2>
+                    <div className="whitespace-pre-wrap font-serif text-gray-800 leading-relaxed">
+                      {relatedConcepts}
+                    </div>
+                  </div>
+                );
+              } else {
+                return (
+                  <div key={index} className="whitespace-pre-wrap font-serif text-gray-800 leading-relaxed">
+                    {section}
+                    <hr className="border-t border-slate-200 my-6" />
+                  </div>
+                );
+              }
+            })}
           </div>
         );
       }
@@ -220,13 +317,12 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
 
     return (
       <div className={`w-full h-full ${getPageBackground()} flex flex-col`}>
-        {/* Book header - FIXED position */}
         <div className="sticky top-0 z-10 p-6 pb-0 bg-white bg-opacity-95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
           <div className="mb-6 flex justify-between items-center">
             <h1 className="text-xl font-serif text-gray-800 font-medium">{currentTitle}</h1>
             <div className="flex items-center gap-3">
-              <button 
-                onClick={copyToClipboard} 
+              <button
+                onClick={copyToClipboard}
                 className="p-2 rounded-full bg-white shadow-sm hover:bg-gray-50 text-gray-700 transition-all"
                 onMouseEnter={() => handleTooltip('Copy')}
                 onMouseLeave={() => handleTooltip('')}
@@ -238,15 +334,15 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
                   </span>
                 )}
               </button>
-              <button 
-                onClick={downloadContent} 
+              <button
+                onClick={downloadContent}
                 className="p-2 rounded-full bg-white shadow-sm hover:bg-gray-50 text-gray-700 transition-all"
                 onMouseEnter={() => handleTooltip('Download')}
                 onMouseLeave={() => handleTooltip('')}
               >
                 <Download size={16} />
               </button>
-              <button 
+              <button
                 onClick={toggleViewMode}
                 className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full shadow-sm hover:bg-gray-50 text-gray-700 transition-all text-sm font-medium"
               >
@@ -256,28 +352,27 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
             </div>
           </div>
         </div>
-        
-        {/* Book content - Scrollable area */}
-        <div className="flex-1 overflow-auto p-6 pt-4">
+        <div
+          className="flex-1 p-6 pt-4 overflow-y-auto custom-scrollbar"
+          style={{ maxHeight: 'calc(100vh - 120px)' }} // Adjusted height to account for header and footer
+        >
           <div className="w-full">
             {formatCodeForBook()}
           </div>
         </div>
-        
-        {/* Book footer - FIXED position at bottom */}
         <div className="sticky bottom-0 p-4 border-t border-gray-200 bg-white bg-opacity-90 backdrop-blur-sm flex justify-between items-center text-xs text-gray-500 shadow-inner">
           <div className="flex items-center gap-4">
-            <button 
-              onClick={goBack} 
-              disabled={historyIndex === 0} 
+            <button
+              onClick={goBack}
+              disabled={historyIndex === 0}
               className={`flex items-center gap-1 px-2 py-1 rounded ${historyIndex === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'}`}
             >
               <ChevronLeft size={14} />
               <span>Previous</span>
             </button>
-            <button 
-              onClick={goForward} 
-              disabled={historyIndex === history.length - 1} 
+            <button
+              onClick={goForward}
+              disabled={historyIndex === history.length - 1}
               className={`flex items-center gap-1 px-2 py-1 rounded ${historyIndex === history.length - 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'}`}
             >
               <span>Next</span>
@@ -292,7 +387,6 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
     );
   };
 
-  // Canvas View Content Renderer (Updated with fixed header and footer)
   const renderCanvasContent = () => {
     switch (currentContentType) {
       case 'code':
@@ -303,32 +397,77 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
                 {getLanguageLabel()}
               </div>
             )}
-            <pre className={`language-${currentLanguage} line-numbers h-full overflow-auto m-0 rounded-xl bg-gray-900 p-6 pb-12`}>
+            <pre className={`language-${currentLanguage} line-numbers h-full overflow-auto m-0 rounded-none bg-gray-900 p-6 custom-scrollbar`}>
               <code className={`language-${currentLanguage}`}>{currentContent}</code>
             </pre>
           </div>
         );
       case 'text':
+        const { quiz, misconception, relatedConcepts } = parseContent();
         return (
-          <div className="p-6 h-full overflow-auto whitespace-pre-wrap text-slate-700 bg-white rounded-xl">
-            {currentContent}
+          <div
+            className="p-6 overflow-y-auto whitespace-pre-wrap text-slate-700 bg-white rounded-none space-y-6 custom-scrollbar"
+            style={{ maxHeight: 'calc(100vh - 120px)' }} // Constrain height to viewport minus header/footer
+          >
+            {currentContent.split('\n\n').map((section, index) => {
+              if (section.startsWith('Quiz')) {
+                return (
+                  <div key={index}>
+                    <h2 className="text-xl font-semibold text-slate-800 mb-4">Quiz</h2>
+                    {renderQuiz(quiz)}
+                  </div>
+                );
+              } else if (section.startsWith('Misconception')) {
+                return (
+                  <div key={index}>
+                    <hr className="border-t border-slate-200 my-6" />
+                    <h2 className="text-xl font-semibold text-slate-800 mb-4">Misconception</h2>
+                    <div className="whitespace-pre-wrap text-slate-700">{misconception}</div>
+                  </div>
+                );
+              } else if (section.startsWith('Related Concepts')) {
+                return (
+                  <div key={index}>
+                    <hr className="border-t border-slate-200 my-6" />
+                    <h2 className="text-xl font-semibold text-slate-800 mb-4">Related Concepts</h2>
+                    <div className="whitespace-pre-wrap text-slate-700">{relatedConcepts}</div>
+                  </div>
+                );
+              } else {
+                return (
+                  <div key={index} className="whitespace-pre-wrap text-slate-700">
+                    {section}
+                    <hr className="border-t border-slate-200 my-6" />
+                  </div>
+                );
+              }
+            })}
           </div>
         );
       case 'markdown':
         return (
-          <div className="p-6 h-full overflow-auto prose prose-slate max-w-none bg-white rounded-xl">
+          <div
+            className="p-6 overflow-y-auto prose prose-slate max-w-none bg-white rounded-none custom-scrollbar"
+            style={{ maxHeight: 'calc(100vh - 120px)' }}
+          >
             {currentContent}
           </div>
         );
       case 'image':
         return (
-          <div className="flex items-center justify-center h-full bg-slate-50 p-6 rounded-xl">
+          <div
+            className="flex items-center justify-center h-full bg-slate-50 p-6 rounded-none custom-scrollbar"
+            style={{ maxHeight: 'calc(100vh - 120px)' }}
+          >
             <img src={currentContent} alt="Content" className="max-w-full max-h-full shadow-lg rounded-xl" />
           </div>
         );
       default:
         return (
-          <div className="p-6 h-full overflow-auto whitespace-pre-wrap">
+          <div
+            className="p-6 overflow-y-auto whitespace-pre-wrap custom-scrollbar"
+            style={{ maxHeight: 'calc(100vh - 120px)' }}
+          >
             {currentContent}
           </div>
         );
@@ -345,21 +484,16 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
     }
   };
 
-  // Animation classes for page flip
-  const animationClass = pageFlipAnimation ? 
-    'animate-flip-out opacity-0 transform scale-95' : 
+  const animationClass = pageFlipAnimation ?
+    'animate-flip-out opacity-0 transform scale-95' :
     'animate-flip-in opacity-100 transform scale-100';
 
-  // Render book mode
   if (viewMode === 'book') {
     return (
       <div className={`${fullscreen ? 'fixed inset-0 z-50' : 'h-full'}`}>
         <div className={`w-full h-full bg-white rounded-xl shadow-lg overflow-hidden ${animationClass} transition-all duration-300`}>
           <div className="w-full h-full flex flex-col">
-            {/* Book spine decoration */}
             <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-indigo-600 to-indigo-400 rounded-l-xl"></div>
-            
-            {/* Book content area with left margin for spine */}
             <div className="pl-6 w-full h-full flex flex-col">
               {renderBookContent()}
             </div>
@@ -369,7 +503,6 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
     );
   }
 
-  // Render canvas mode (updated layout with fixed header and footer)
   const isDarkMode = currentContentType === 'code';
   const headerBg = isDarkMode ? 'bg-gray-800' : 'bg-white';
   const headerText = isDarkMode ? 'text-gray-100' : 'text-slate-700';
@@ -377,20 +510,18 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
   const buttonText = isDarkMode ? 'text-gray-300' : 'text-slate-500';
   const borderColor = isDarkMode ? 'border-gray-700' : 'border-slate-100';
 
-  const containerStyles = fullscreen 
-    ? 'fixed inset-0 z-50 flex flex-col shadow-2xl'
-    : 'flex flex-col rounded-lg shadow-sm h-full bg-opacity-75 backdrop-blur-sm';
+  const containerStyles = fullscreen
+    ? 'fixed inset-0 z-50 flex flex-col'
+    : 'flex flex-col h-full';
 
   return (
-    <div className={`${containerStyles} ${isDarkMode ? 'bg-gray-900' : 'bg-white'} overflow-hidden transition-all duration-200 ${animationClass}`}>
-      {/* Fixed header */}
-      <div className={`sticky top-0 z-20 px-4 py-3 flex justify-between items-center ${headerBg} ${headerText} ${borderColor} border-b backdrop-blur-sm bg-opacity-90`}>
+    <div className={`${containerStyles} ${isDarkMode ? 'bg-gray-900' : 'bg-white'} transition-all duration-200 ${animationClass}`}>
+      <div className={`z-20 px-4 py-3 flex justify-between items-center ${headerBg} ${headerText} ${borderColor} border-b backdrop-blur-sm bg-opacity-90`}>
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-opacity-20 backdrop-blur-sm">
             {getIcon()}
           </div>
           <div className="font-medium truncate">{currentTitle}</div>
-          
           {currentContentType === 'code' && (
             <span className="px-3 py-1 text-xs rounded-full bg-indigo-100 text-indigo-800 ml-2 shadow-sm">
               {getLanguageLabel()}
@@ -398,18 +529,18 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
           )}
         </div>
         <div className="flex gap-1">
-          <button 
-            onClick={goBack} 
-            disabled={historyIndex === 0} 
+          <button
+            onClick={goBack}
+            disabled={historyIndex === 0}
             className={`p-2 rounded-full transition-all ${historyIndex === 0 ? 'opacity-30 cursor-not-allowed' : `${buttonText} ${buttonHover}`}`}
             onMouseEnter={() => handleTooltip('Previous')}
             onMouseLeave={() => handleTooltip('')}
           >
             <ChevronLeft size={16} className="stroke-2" />
           </button>
-          <button 
-            onClick={goForward} 
-            disabled={historyIndex === history.length - 1} 
+          <button
+            onClick={goForward}
+            disabled={historyIndex === history.length - 1}
             className={`p-2 rounded-full transition-all ${historyIndex === history.length - 1 ? 'opacity-30 cursor-not-allowed' : `${buttonText} ${buttonHover}`}`}
             onMouseEnter={() => handleTooltip('Next')}
             onMouseLeave={() => handleTooltip('')}
@@ -417,7 +548,7 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
             <ChevronRight size={16} className="stroke-2" />
           </button>
           <div className="w-px h-6 mx-1 bg-slate-200 dark:bg-gray-700 self-center"></div>
-          <button 
+          <button
             onClick={toggleViewMode}
             className={`p-2 rounded-full transition-all ${buttonText} ${buttonHover}`}
             onMouseEnter={() => handleTooltip('Switch to Book View')}
@@ -425,8 +556,8 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
           >
             <BookMarked size={16} className="stroke-2" />
           </button>
-          <button 
-            onClick={copyToClipboard} 
+          <button
+            onClick={copyToClipboard}
             className={`p-2 rounded-full relative transition-all ${buttonText} ${buttonHover}`}
             onMouseEnter={() => handleTooltip('Copy')}
             onMouseLeave={() => handleTooltip('')}
@@ -438,23 +569,23 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
               </span>
             )}
           </button>
-          <button 
-            onClick={downloadContent} 
+          <button
+            onClick={downloadContent}
             className={`p-2 rounded-full transition-all ${buttonText} ${buttonHover}`}
             onMouseEnter={() => handleTooltip('Download')}
             onMouseLeave={() => handleTooltip('')}
           >
             <Download size={16} className="stroke-2" />
           </button>
-          <button 
-            onClick={toggleFullscreen} 
+          <button
+            onClick={toggleFullscreen}
             className={`p-2 rounded-full transition-all ${buttonText} ${buttonHover}`}
             onMouseEnter={() => handleTooltip(fullscreen ? 'Exit Fullscreen' : 'Fullscreen')}
             onMouseLeave={() => handleTooltip('')}
           >
             {fullscreen ? <Minimize2 size={16} className="stroke-2" /> : <Maximize2 size={16} className="stroke-2" />}
           </button>
-          <button 
+          <button
             className={`p-2 rounded-full transition-all ${buttonText} ${buttonHover}`}
             onMouseEnter={() => handleTooltip('Share')}
             onMouseLeave={() => handleTooltip('')}
@@ -463,22 +594,23 @@ const CanvasArea = ({ content, contentType = 'code', language = 'javascript', ti
           </button>
         </div>
       </div>
-      
+
       {showTooltip && (
         <div className="absolute top-12 right-4 bg-black text-white text-xs px-3 py-1 rounded-md shadow-lg z-30 transition-opacity duration-200">
           {showTooltip}
         </div>
       )}
-      
-      {/* Content area - Takes remaining space and allows scrolling */}
-      <div ref={contentRef} className="flex-1 overflow-auto relative transition-all duration-200">
-        {/* Only render the canvas content when in canvas view mode AND the canvas view has been activated */}
+
+      <div
+        ref={contentRef}
+        className="flex-1 overflow-y-auto custom-scrollbar"
+        style={{ maxHeight: 'calc(100vh - 120px)' }} // Ensure content area has a fixed height
+      >
         {hasActivatedCanvasView && renderCanvasContent()}
       </div>
-      
-      {/* Fixed footer for code view */}
+
       {currentContentType === 'code' && viewMode === 'canvas' && hasActivatedCanvasView && (
-        <div className="sticky bottom-0 z-20 bg-gray-800 text-gray-400 text-xs py-2 px-4 border-t border-gray-700 flex justify-between items-center">
+        <div className="z-20 bg-gray-800 text-gray-400 text-xs py-2 px-4 border-t border-gray-700 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-gray-400"></div>
             <span>{currentContent.split('\n').length} lines</span>

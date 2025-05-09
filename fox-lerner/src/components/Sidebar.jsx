@@ -17,7 +17,7 @@ const Sidebar = ({ onNavItemClick, onProjectAdded, onProjectsUpdated, initialPro
   
   const actionsMenuRef = useRef(null);
   
-  const subjects = ["Mathematics", "Computer Science"];
+  const subjects = ["Mathematics", "Computer Science","Networking","Database Systems","Software Engineering"];
   
   useEffect(() => {
     if (onProjectsUpdated && projects !== initialProjects) {

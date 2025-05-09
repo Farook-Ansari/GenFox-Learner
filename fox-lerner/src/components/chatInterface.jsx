@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, ThumbsUp, ThumbsDown, HelpCircle, X, Smile, ArrowLeft, Mic, Video, MessageSquare, Camera, ChevronDown, Check, BookmarkPlus, Monitor } from 'lucide-react';
 import CanvasArea from './CanvasArea';
 
-// Predefined question-answer flow (unchanged)
+// Predefined question-answer flow
 const questionAnswerFlow = [
   {
     question: /linear data structures/i,
@@ -28,7 +28,7 @@ const questionAnswerFlow = [
     question: /first element.*index 0/i,
     chatResponse: "Exactly! Would you like to see a visual example and do a quick quiz?",
     canvasContent: {
-      content: `\n\nQuiz\nGiven arr = [10, 20, 30, 40], what is arr[2]?\n\n- 10\n- 20\n- 30\n- 40\n\nMisconception\n❌ Arrays can grow or shrink dynamically.\n✅ Arrays have fixed size once created.\n\nRelated Concepts\n- Linked List: elements connected via pointers.\n- Stack: LIFO principle.\n- Queue: FIFO principle.\n\nGreat! Would you like to learn about linked lists next or practice more array operations?`,
+      content: `\n\nQuiz\nGiven arr = [10, 20, 30, 40], what is arr[2]?\n- 10\n- 20\n- 30\n- 40\n\nMisconception\n❌ Arrays can grow or shrink dynamically.\n✅ Arrays have fixed size once created.\n\nRelated Concepts\n- Linked List: elements connected via pointers.\n- Stack: LIFO principle.\n- Queue: FIFO principle.\nGreat! Would you like to learn about linked lists next or practice more array operations?`,
       contentType: "text",
       title: "Linear Data Structures",
       language: "plaintext"
@@ -286,6 +286,7 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
     setSelectedOption(option);
     setShowDropdown(false);
     setOptionSelected(true);
+    setIsLearnWithMeMode(option === 'memorize');
   };
 
   const startLearningSession = (message) => {
@@ -337,7 +338,7 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
 
   const optionLabels = {
     solve: 'Teach Me',
-    memorize: 'LearnWithMe',
+    memorize: 'Learn With Me',
     practice: 'Quiz Me'
   };
 
@@ -419,129 +420,127 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
           </div>
 
           {/* Chat Content - Scrollable */}
-          <div className="flex-1 flex flex-col">
-            <div
-              className="flex-1 overflow-y-auto py-3 px-3 bg-slate-50"
-              style={{ height: 'calc(100vh - 120px)' }} // Adjust height to account for header and input
-            >
-              {messages.map((message, index) => (
-                <div key={index} className={`mb-4 ${message.type === 'user' ? 'flex justify-end' : ''}`}>
-                  {message.type === 'assistant' && (
-                    <div className="flex">
-                      <div className="bg-slate-200 text-slate-600 h-6 w-6 rounded-full flex items-center justify-center mr-2 shadow-sm">
-                        <span className="text-xs font-medium">AI</span>
+          <div
+            className="overflow-y-auto py-3 px-3 bg-slate-50"
+            style={{ height: 'calc(100vh - 64px - 96px)' }}
+          >
+            {messages.map((message, index) => (
+              <div key={index} className={`mb-4 ${message.type === 'user' ? 'flex justify-end' : ''}`}>
+                {message.type === 'assistant' && (
+                  <div className="flex">
+                    <div className="bg-slate-200 text-slate-600 h-6 w-6 rounded-full flex items-center justify-center mr-2 shadow-sm">
+                      <span className="text-xs font-medium">AI</span>
+                    </div>
+                    <div className="max-w-2xl">
+                      <div className="p-3 bg-white rounded-lg shadow-sm mt-5">
+                        <p className="text-sm text-slate-700">{message.content}</p>
                       </div>
-                      <div className="max-w-2xl">
-                        <div className="p-3 bg-white rounded-lg shadow-sm">
-                          <p className="text-sm text-slate-700">{message.content}</p>
-                        </div>
-                        <div className="mt-1 flex gap-1">
-                          <button className="p-1 rounded-full hover:bg-white text-slate-400 transition-colors">
-                            <ThumbsUp size={12} />
+                      <div className="mt-1 flex gap-1">
+                        <button className="p-1 rounded-full hover:bg-white text-slate-400 transition-colors">
+                          <ThumbsUp size={12} />
+                        </button>
+                        <button className="p-1 rounded-full hover:bg-white text-slate-400 transition-colors">
+                          <ThumbsDown size={12} />
+                        </button>
+                        {selectedOption !== 'memorize' && (
+                          <button
+                            className="px-1 py-0.5 rounded-full hover:bg-white text-slate-500 flex items-center transition-colors"
+                            onClick={() => handleOpenExplainOptions(message.content)}
+                          >
+                            <HelpCircle size={12} />
+                            <span className="ml-1 text-xs">Explain it Fox</span>
                           </button>
-                          <button className="p-1 rounded-full hover:bg-white text-slate-400 transition-colors">
-                            <ThumbsDown size={12} />
+                        )}
+                        {selectedOption === 'memorize' && (
+                          <button
+                            className="px-1 py-0.5 rounded-full hover:bg-white text-slate-500 flex items-center transition-colors"
+                            onClick={() => startLearningSession(message.content)}
+                          >
+                            <BookmarkPlus size={12} />
+                            <span className="ml-1 text-xs">Explain It Fox</span>
                           </button>
-                          {selectedOption !== 'memorize' && (
-                            <button
-                              className="px-1 py-0.5 rounded-full hover:bg-white text-slate-500 flex items-center transition-colors"
-                              onClick={() => handleOpenExplainOptions(message.content)}
-                            >
-                              <HelpCircle size={12} />
-                              <span className="ml-1 text-xs">Explain it Fox</span>
-                            </button>
-                          )}
-                          {selectedOption === 'memorize' && (
-                            <button
-                              className="px-1 py-0.5 rounded-full hover:bg-white text-slate-500 flex items-center transition-colors"
-                              onClick={() => startLearningSession(message.content)}
-                            >
-                              <BookmarkPlus size={12} />
-                              <span className="ml-1 text-xs">Explain It Fox</span>
-                            </button>
-                          )}
-                        </div>
+                        )}
                       </div>
                     </div>
-                  )}
-                  {message.type === 'user' && (
-                    <div className="max-w-sm bg-indigo-500 text-white rounded-lg p-2 shadow-sm">
-                      <p className="text-sm">{message.content}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input Area - Pinned to Bottom */}
-            <div className="border-t border-slate-100 bg-white p-3">
-              {showCanvas && isLearnWithMeMode && (
-                <div className="mb-2 flex justify-center">
-                  <div className="flex gap-1 bg-slate-50 rounded-lg p-1 shadow-sm">
-                    <button
-                      className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "chat" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
-                      onClick={() => handleSelectExplainMode("chat")}
-                      title="Screen share"
-                    >
-                      <Monitor size={14} />
-                    </button>
-                    <button
-                      className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "audio" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
-                      onClick={() => handleSelectExplainMode("audio")}
-                      title="Voice explanation"
-                    >
-                      <Mic size={14} />
-                    </button>
-                    <button
-                      className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "video" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
-                      onClick={() => handleSelectExplainMode("video")}
-                      title="Video explanation"
-                    >
-                      <Video size={14} />
-                    </button>
-                    {micActive && (
-                      <span className="ml-1 px-1 py-0.5 bg-red-100 text-red-600 rounded-full text-xs flex items-center">
-                        <Mic size={10} className="mr-0.5" /> Active
-                      </span>
-                    )}
-                    {cameraActive && (
-                      <span className="ml-1 px-1 py-0.5 bg-red-100 text-red-600 rounded-full text-xs flex items-center">
-                        <Video size={10} className="mr-0.5" /> Active
-                      </span>
-                    )}
                   </div>
-                </div>
-              )}
-              <div className="flex items-center">
-                <div className="flex-1 border border-slate-200 rounded-lg flex items-center overflow-hidden bg-white">
-                  <textarea
-                    ref={inputRef}
-                    className="flex-1 px-3 py-1.5 bg-transparent outline-none resize-none text-sm text-slate-700"
-                    placeholder={`Ask about ${category} in ${selectedChat}...`}
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    rows={1}
-                    style={{ minHeight: '36px', maxHeight: '80px' }}
-                  />
-                  <button className="p-1 text-slate-300 hover:text-slate-500">
-                    <Smile size={16} />
+                )}
+                {message.type === 'user' && (
+                  <div className="max-w-sm bg-indigo-500 text-white rounded-lg p-2 shadow-sm mt-13">
+                    <p className="text-sm">{message.content}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input Area - Pinned to Bottom */}
+          <div className="border-t border-slate-100 bg-white p-3">
+            {isLearnWithMeMode && (
+              <div className="mb-2 flex justify-center">
+                <div className="flex gap-1 bg-slate-50 rounded-lg p-1 shadow-sm">
+                  <button
+                    className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "chat" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
+                    onClick={() => handleSelectExplainMode("chat")}
+                    title="Screen share"
+                  >
+                    <Monitor size={14} />
                   </button>
+                  <button
+                    className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "audio" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
+                    onClick={() => handleSelectExplainMode("audio")}
+                    title="Voice explanation"
+                  >
+                    <Mic size={14} />
+                  </button>
+                  <button
+                    className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "video" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
+                    onClick={() => handleSelectExplainMode("video")}
+                    title="Video explanation"
+                  >
+                    <Video size={14} />
+                  </button>
+                  {micActive && (
+                    <span className="ml-1 px-1 py-0.5 bg-red-100 text-red-600 rounded-full text-xs flex items-center">
+                      <Mic size={10} className="mr-0.5" /> Active
+                    </span>
+                  )}
+                  {cameraActive && (
+                    <span className="ml-1 px-1 py-0.5 bg-red-100 text-red-600 rounded-full text-xs flex items-center">
+                      <Video size={10} className="mr-0.5" /> Active
+                    </span>
+                  )}
                 </div>
-                <button
-                  className={`ml-1 p-1 rounded-lg ${inputText.trim() && selectedOption ? 'bg-indigo-500 text-white hover:bg-indigo-600' : 'bg-slate-100 text-slate-400'} transition-all`}
-                  onClick={handleSendMessage}
-                  disabled={!inputText.trim() || !selectedOption}
-                >
-                  <Send size={16} />
+              </div>
+            )}
+            <div className="flex items-center">
+              <div className="flex-1 border border-slate-200 rounded-lg flex items-center overflow-hidden bg-white">
+                <textarea
+                  ref={inputRef}
+                  className="flex-1 px-3 py-1.5 bg-transparent outline-none resize-none text-sm text-slate-700"
+                  placeholder={`Ask about ${category} in ${selectedChat}...`}
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  rows={1}
+                  style={{ minHeight: '36px', maxHeight: '80px' }}
+                />
+                <button className="p-1 text-slate-300 hover:text-slate-500">
+                  <Smile size={16} />
                 </button>
               </div>
-              <div className="mt-1">
-                <p className="text-xs text-slate-400 text-center">
-                  AI responses may contain inaccuracies. Please verify important information.
-                </p>
-              </div>
+              <button
+                className={`ml-1 p-1 rounded-lg ${inputText.trim() && selectedOption ? 'bg-indigo-500 text-white hover:bg-indigo-600' : 'bg-slate-100 text-slate-400'} transition-all`}
+                onClick={handleSendMessage}
+                disabled={!inputText.trim() || !selectedOption}
+              >
+                <Send size={16} />
+              </button>
+            </div>
+            <div className="mt-1">
+              <p className="text-xs text-slate-400 text-center">
+                AI responses may contain inaccuracies. Please verify important information.
+              </p>
             </div>
           </div>
         </div>
@@ -571,7 +570,7 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
                     {isTyping && (
                       <span className="ml-1 inline-flex">
                         <span className="animate-pulse">.</span>
-                        <span className ="animate-pulse delay-100">.</span>
+                        <span className="animate-pulse delay-100">.</span>
                         <span className="animate-pulse delay-200">.</span>
                       </span>
                     )}
@@ -621,8 +620,8 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
 
             {/* Canvas Content - Scrollable */}
             <div
-              className="flex-1 overflow-y-auto p-3 bg-slate-50 relative"
-              style={{ height: 'calc(100vh - 60px)' }} // Adjust height to account for header
+              className="flex-1 overflow-y-auto p-3 bg-slate-50 relative mt-12"
+              style={{ height: 'calc(100vh - 60px)' }}
             >
               {showAddNoteMenu && (
                 <div

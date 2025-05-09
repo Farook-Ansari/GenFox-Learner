@@ -467,9 +467,9 @@ ${resourcesList}
   // Option label mapping for display
   const optionLabels = {
     tasks: 'Mode',
-    notes: 'Solve',
-    resources: 'Memorize',
-    overview: 'practice'
+    notes: 'Teach Me',
+    resources: 'Learn With Me',
+    overview: 'Quiz Me'
   };
 
   // Project options for dropdown
