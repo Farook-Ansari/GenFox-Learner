@@ -93,7 +93,7 @@ const Syllabus = ({ category, categoryIcon, categoryColor, onBackClick }) => {
     ]
   };
 
-  // Calculate total lessons and completed lessons
+  // Calculate total lessons and completed 
   const totalLessons = syllabus.modules.reduce((total, module) => total + module.lessons.length, 0);
   const completedLessons = syllabus.modules.reduce((total, module) => 
     total + module.lessons.filter(lesson => lesson.completed).length, 0);
