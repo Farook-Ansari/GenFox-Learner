@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, ThumbsUp, ThumbsDown, HelpCircle, X, Smile, Menu, ArrowLeft, Mic, Video, MessageSquare, Camera, ChevronDown, Check } from 'lucide-react';
+import { Send, ThumbsUp, ThumbsDown, HelpCircle, X, Smile, ArrowLeft, Mic, Video, MessageSquare, Camera, ChevronDown, Check, BookmarkPlus } from 'lucide-react';
 import CanvasArea from './CanvasArea';
 
-const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, initialQuestion = '' }) => {
+const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, initialQuestion = '', addNote, onNavigate }) => {
   const [messages, setMessages] = useState([]);
   
   const [inputText, setInputText] = useState(initialQuestion);
@@ -15,33 +15,34 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
     title: "Fox Explanation"
   });
   
-  // Adding state for typing effect
   const [isTyping, setIsTyping] = useState(false);
   const [fullExplanation, setFullExplanation] = useState("");
   const [currentExplanation, setCurrentExplanation] = useState("");
   const typingSpeedRef = useRef(10); // milliseconds per character
 
-  // Media-related states
   const [explainMode, setExplainMode] = useState("chat"); // "chat", "audio", or "video"
   const [micActive, setMicActive] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState(null);
   
-  // Camera video stream reference
   const videoRef = useRef(null);
   const mediaStreamRef = useRef(null);
 
   const inputRef = useRef(null);
   
-  // Dropdown state - modified to start with 'solve' as selected option
   const [showDropdown, setShowDropdown] = useState(false);
-  const [selectedOption, setSelectedOption] = useState('solve'); // Changed to 'solve' as default
-  const [optionSelected, setOptionSelected] = useState(true); // Track if an option has been selected
+  const [selectedOption, setSelectedOption] = useState('solve');
+  const [optionSelected, setOptionSelected] = useState(true);
   
-  // New dropdown for category chats
   const [showChatDropdown, setShowChatDropdown] = useState(false);
-  const [selectedChat, setSelectedChat] = useState("chat1"); // Default selected chat
-  const [chatSelected, setChatSelected] = useState(false); // Track if a chat has been explicitly selected
+  const [selectedChat, setSelectedChat] = useState("chat1");
+  const [chatSelected, setChatSelected] = useState(false);
+  
+  const [showAddNoteMenu, setShowAddNoteMenu] = useState(false);
+  const [selectedText, setSelectedText] = useState("");
+  const [noteMenuPosition, setNoteMenuPosition] = useState({ top: 0, left: 0 });
+  
+  const canvasRef = useRef(null);
   
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -51,7 +52,6 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
     scrollToBottom();
   }, [messages]);
   
-  // Auto-adjust textarea height
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = '44px';
@@ -59,7 +59,6 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
     }
   }, [inputText]);
   
-  // Effect for typing animation
   useEffect(() => {
     if (isTyping && currentExplanation.length < fullExplanation.length) {
       const timer = setTimeout(() => {
@@ -72,14 +71,12 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
     }
   }, [isTyping, currentExplanation, fullExplanation]);
   
-  // Clean up media resources when closing the canvas
   useEffect(() => {
     if (!showCanvas) {
       cleanupMediaResources();
     }
   }, [showCanvas]);
   
-  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (showDropdown && !event.target.closest('.option-dropdown-container')) {
@@ -88,13 +85,53 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
       if (showChatDropdown && !event.target.closest('.chat-dropdown-container')) {
         setShowChatDropdown(false);
       }
+      if (showAddNoteMenu && !event.target.closest('.add-note-menu')) {
+        setShowAddNoteMenu(false);
+      }
     };
     
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showDropdown, showChatDropdown]);
+  }, [showDropdown, showChatDropdown, showAddNoteMenu]);
   
-  // Cleanup function for media resources
+  useEffect(() => {
+    const handleTextSelection = () => {
+      const selection = window.getSelection();
+
+      if (selection && selection.toString().trim().length > 0) {
+        if (canvasRef.current && canvasRef.current.contains(selection.anchorNode)) {
+          const selectedText = selection.toString().trim();
+          setSelectedText(selectedText);
+
+          const range = selection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+
+          const canvasRect = canvasRef.current.getBoundingClientRect();
+          const canvasScrollTop = canvasRef.current.scrollTop;
+          const canvasScrollLeft = canvasRef.current.scrollLeft;
+
+          const menuWidth = 120;
+          const menuHeight = 40;
+
+          const relativeTop = rect.top - canvasRect.top + canvasScrollTop - menuHeight - 10;
+          const relativeLeft = rect.left - canvasRect.left + canvasScrollLeft + (rect.width / 2) - (menuWidth / 2);
+
+          setNoteMenuPosition({
+            top: relativeTop,
+            left: relativeLeft
+          });
+
+          setShowAddNoteMenu(true);
+        }
+      } else {
+        setShowAddNoteMenu(false);
+      }
+    };
+
+    document.addEventListener('mouseup', handleTextSelection);
+    return () => document.removeEventListener('mouseup', handleTextSelection);
+  }, []);
+  
   const cleanupMediaResources = () => {
     if (micActive) {
       setMicActive(false);
@@ -110,12 +147,11 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
   };
   
   const handleSendMessage = () => {
-    if (inputText.trim() === '' || !selectedOption) return; // Prevent sending message if no option selected
+    if (inputText.trim() === '' || !selectedOption) return;
     
     setMessages([...messages, { type: 'user', content: inputText }]);
     setInputText('');
     
-    // Simulate assistant response - in a real app, this would be an API call
     setTimeout(() => {
       setMessages(prev => [...prev, { 
         type: 'assistant', 
@@ -128,12 +164,10 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
     setExplainMode(mode);
     
     if (mode === "audio" || mode === "video") {
-      // Request media permissions only if not already active
       if ((mode === "audio" && !micActive) || (mode === "video" && !cameraActive)) {
         requestMediaPermissions(mode);
       }
     } else {
-      // If switching to chat mode, clean up media resources but keep the explanation
       cleanupMediaResources();
     }
   };
@@ -154,7 +188,6 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
           setCameraActive(true);
           mediaStreamRef.current = stream;
           
-          // Connect stream to video element if we're in video mode
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
             videoRef.current.play().catch(err => console.error("Error playing video:", err));
@@ -164,42 +197,35 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
       .catch(err => {
         console.error("Media permissions denied:", err);
         alert(`Please allow ${mode === "audio" ? "microphone" : "camera and microphone"} access to use this feature.`);
-        // Fallback to chat mode if permissions denied
         setExplainMode("chat");
       });
   };
   
   const handleOpenExplainOptions = (message) => {
     setSelectedMessage(message);
-    setExplainMode("chat"); // Set default mode
+    setExplainMode("chat");
     startExplanation(message);
   };
   
   const startExplanation = (message) => {
-    // Generate the full explanation text
     const explanation = `Here's a simpler explanation of:\n\n"${message}"\n\n🦊 Fox explanation:\nThis means the AI assistant is giving you a placeholder response about ${category}. In a real app, this would be replaced with an actual helpful answer based on your question.`;
     
-    // Start with empty content
     setCanvasContent({
       content: "",
       contentType: "text",
       title: `Fox Explanation (${explainMode.charAt(0).toUpperCase() + explainMode.slice(1)} Mode)`
     });
     
-    // Set the full explanation that will be shown character by character
     setFullExplanation(explanation);
     setCurrentExplanation("");
     
-    // Show the canvas
     setShowCanvas(true);
     
-    // Start typing effect after a small delay
     setTimeout(() => {
       setIsTyping(true);
     }, 50);
   };
   
-  // Update canvas content as typing occurs
   useEffect(() => {
     if (currentExplanation) {
       setCanvasContent(prev => ({
@@ -220,11 +246,9 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      // Only send message if an option is selected
       if (selectedOption) {
         handleSendMessage();
       } else {
-        // Optional: Show a tooltip or message that user needs to select an option first
         alert("Please select an option first (Solve, Memorize, or Practice)");
       }
     }
@@ -235,40 +259,32 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
     const previousOption = selectedOption;
     setSelectedOption(option);
     setShowDropdown(false);
-    setOptionSelected(true); // Mark that an option has been selected
+    setOptionSelected(true);
     
-    // If "Learn With Me" (memorize) is selected, start the learning session
     if (option === 'memorize' && previousOption !== 'memorize') {
-      // Create a learning message as content
       const learningMessage = `This is a learning session for ${category}. We'll help you memorize key concepts through interactive exercises and spaced repetition techniques.`;
       
-      // Open the learning canvas with typing effect, similar to Explain it Fox
       startLearningSession(learningMessage);
     } else if (option !== 'memorize' && previousOption === 'memorize') {
-      // Close the canvas if switching away from "Learn With Me"
       handleCloseCanvas();
     }
   };
   
   const startLearningSession = (message) => {
-    // Generate the full learning content text with formatting
     const learningContent = `# Learning Session for ${category}\n\nWelcome to your learning session! This canvas will help you memorize key concepts about ${category}.\n\n## Key Points\n\n- Point 1: This is where key learning material would appear\n- Point 2: More detailed explanations would be shown here\n- Point 3: Visual aids and memory techniques would be displayed`;
     
-    // Start with empty content
     setCanvasContent({
       content: "",
       contentType: "text",
       title: `Learn With Me: ${category}`
     });
     
-    // Set the full explanation that will be shown character by character
     setFullExplanation(learningContent);
     setCurrentExplanation("");
     
-    // Show the canvas
     setShowCanvas(true);
+    setExplainMode("chat"); // Set default mode to chat when starting a learning session
     
-    // Start typing effect after a small delay
     setTimeout(() => {
       setIsTyping(true);
     }, 50);
@@ -278,27 +294,51 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
     console.log(`Selected chat: ${chat}`);
     setSelectedChat(chat);
     setShowChatDropdown(false);
-    setChatSelected(true); // Mark that a chat has been explicitly selected
-    // You might want to load chat history based on the selected chat here
+    setChatSelected(true);
   };
   
-  // Option label mapping for display
+const handleAddNote = () => {
+  if (selectedText) {
+    const colors = [
+      'bg-blue-50 text-blue-500',
+      'bg-purple-50 text-purple-500',
+      'bg-green-50 text-green-500',
+      'bg-orange-50 text-orange-500',
+      'bg-red-50 text-red-500',
+      'bg-indigo-50 text-indigo-500'
+    ];
+
+    const newNote = {
+      id: Date.now(),
+      subject: category,
+      content: selectedText,
+      timestamp: new Date().toISOString(),
+      color: colors[Math.floor(Math.random() * colors.length)]
+    };
+
+    addNote(newNote);
+    setShowAddNoteMenu(false);
+
+    alert(`Note added: "${selectedText.substring(0, 30)}${selectedText.length > 30 ? '...' : ''}"`);
+
+    if (onNavigate) {
+      onNavigate('notes'); // This correctly navigates to notes
+    }
+  }
+};
+  
   const optionLabels = {
     solve: 'Teach Me',
-    memorize: 'Learn With Me',
-    practice: 'Quize'
+    memorize: 'LearnWithMe',
+    practice: 'Quiz Me'
   };
   
-  // Chat options for dropdown
   const chatOptions = ['chat1', 'chat2', 'chat3'];
   
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* Main Content Area with clean white theme */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left side: Chat area - Now with minimalist white theme */}
         <div className={`${showCanvas ? 'w-2/5' : 'w-full'} flex flex-col border-r border-slate-100`}>
-          {/* Header now with clean white design */}
           <div className="border-b border-slate-100 bg-white p-4 flex items-center justify-between text-slate-700 shadow-sm">
             <div className="flex items-center flex-1">
               <button 
@@ -312,7 +352,6 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
                 <h2 className="font-medium text-lg text-slate-700">{category}</h2>
               </div>
               
-              {/* Options Dropdown - MOVED HERE */}
               <div className="ml-4 option-dropdown-container relative">
                 <button 
                   className="py-1 px-3 rounded-full hover:bg-slate-50 transition-colors text-slate-700 flex items-center border border-slate-200"
@@ -326,7 +365,6 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
                   <ChevronDown size={16} />
                 </button>
                 
-                {/* Dropdown menu */}
                 {showDropdown && (
                   <div className="absolute left-0 top-full mt-1 bg-white rounded-lg shadow-lg py-2 z-10 w-40 border border-slate-100">
                     {Object.entries(optionLabels).map(([value, label]) => (
@@ -344,7 +382,6 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
               </div>
             </div>
             
-            {/* New Chat Selection Dropdown - MOVED TO RIGHT */}
             <div className="chat-dropdown-container relative">
               <button 
                 className="py-1 px-3 rounded-full hover:bg-slate-50 transition-colors text-slate-700 flex items-center border border-slate-200 text-sm"
@@ -358,7 +395,6 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
                 <ChevronDown size={16} />
               </button>
               
-              {/* Chat dropdown menu */}
               {showChatDropdown && (
                 <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg py-2 z-10 w-48 border border-slate-100">
                   {chatOptions.map((chat) => (
@@ -376,7 +412,6 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
             </div>
           </div>
           
-          {/* Chat messages with white theme */}
           <div className="flex-1 overflow-y-auto py-4 px-4 bg-slate-50">
             {messages.map((message, index) => (
               <div key={index} className={`mb-6 ${message.type === 'user' ? 'flex justify-end' : ''}`}>
@@ -418,7 +453,6 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
             ))}            
           </div>
           
-          {/* Input area with white theme */}
           <div className="border-t border-slate-100 bg-white p-4">
             <div className="flex items-center">
               <div className="flex-1 border border-slate-200 rounded-lg flex items-center overflow-hidden bg-white">
@@ -456,7 +490,6 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
           </div>
         </div>
         
-        {/* Right side: Canvas Area with white theme */}
         {showCanvas && (
           <div className="w-3/5 flex flex-col relative">
             <div className="bg-white p-3 flex justify-between items-center text-black z-10">
@@ -465,6 +498,13 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
                   <>
                     <span className="mr-2 text-lg">📚</span> 
                     Learn With Me: {category}
+                    {isTyping && (
+                      <span className="ml-2 inline-flex">
+                        <span className="animate-pulse">.</span>
+                        <span className="animate-pulse delay-100">.</span>
+                        <span className="animate-pulse delay-200">.</span>
+                      </span>
+                    )}
                   </>
                 ) : (
                   <>
@@ -480,34 +520,31 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
                   </>
                 )}
                 
-                {/* Only show media mode selector icons for Fox Explanation */}
-                {selectedOption !== 'memorize' && (
-                  <div className="ml-3 flex gap-2">
-                    <button 
-                      className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "chat" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
-                      onClick={() => handleSelectExplainMode("chat")}
-                      title="Text explanation"
-                    >
-                      <MessageSquare size={16} />
-                    </button>
-                    <button 
-                      className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "audio" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
-                      onClick={() => handleSelectExplainMode("audio")}
-                      title="Voice explanation"
-                    >
-                      <Mic size={16} />
-                    </button>
-                    <button 
-                      className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "video" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
-                      onClick={() => handleSelectExplainMode("video")}
-                      title="Video explanation"
-                    >
-                      <Video size={16} />
-                    </button>
-                  </div>
-                )}
+                {/* Removed the condition so the controls show regardless of mode */}
+                <div className="ml-3 flex gap-2">
+                  <button 
+                    className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "chat" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
+                    onClick={() => handleSelectExplainMode("chat")}
+                    title="Text explanation"
+                  >
+                    <MessageSquare size={16} />
+                  </button>
+                  <button 
+                    className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "audio" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
+                    onClick={() => handleSelectExplainMode("audio")}
+                    title="Voice explanation"
+                  >
+                    <Mic size={16} />
+                  </button>
+                  <button 
+                    className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${explainMode === "video" ? "bg-indigo-100 text-indigo-600" : "text-slate-400"}`}
+                    onClick={() => handleSelectExplainMode("video")}
+                    title="Video explanation"
+                  >
+                    <Video size={16} />
+                  </button>
+                </div>
                 
-                {/* Media indicators */}
                 {micActive && (
                   <span className="ml-2 px-2 py-1 bg-red-100 text-red-600 rounded-full text-xs flex items-center">
                     <Mic size={12} className="mr-1" /> Mic active
@@ -528,11 +565,27 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
             </div>
             
             <div className="flex-1 overflow-y-auto p-4 bg-slate-50 relative">
-              {/* Camera Avatar */}
+              {showAddNoteMenu && (
+                <div 
+                  className="add-note-menu absolute bg-white rounded-lg shadow-lg py-2 px-4 z-20 flex items-center border border-indigo-100"
+                  style={{ 
+                    top: `${noteMenuPosition.top}px`, 
+                    left: `${noteMenuPosition.left}px`
+                  }}
+                >
+                  <button 
+                    className="flex items-center gap-1 text-indigo-600 text-sm font-medium hover:text-indigo-800 transition-colors"
+                    onClick={handleAddNote}
+                  >
+                    <BookmarkPlus size={16} />
+                    Add note
+                  </button>
+                </div>
+              )}
+              
               {cameraActive && (
                 <div className="absolute bottom-8 right-8 z-10 transition-all duration-300 ease-in-out">
                   <div className="group relative">
-                    {/* User Avatar with Camera Feed */}
                     <div className="w-36 h-36 rounded-xl overflow-hidden shadow-lg bg-gray-900 ring-4 ring-indigo-500 ring-opacity-70 transition-all duration-300 hover:ring-opacity-100">
                       <video 
                         ref={videoRef} 
@@ -543,12 +596,10 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
                       />
                     </div>
                     
-                    {/* Camera Indicator Circle */}
                     <div className="absolute -top-2 -right-2 bg-red-500 p-2 rounded-full shadow-md flex items-center justify-center">
                       <Camera size={14} className="text-white" />
                     </div>
                     
-                    {/* User Label */}
                     <div className="absolute -bottom-2 inset-x-0 bg-indigo-600 py-1 px-3 text-white text-xs font-medium text-center rounded-b-xl opacity-90">
                       You
                     </div>
@@ -556,7 +607,7 @@ const ChatInterface = ({ category, categoryIcon, categoryColor, onBackClick, ini
                 </div>
               )}
               
-              <div className="bg-white rounded-lg p-4 shadow-sm">
+              <div className="bg-white rounded-lg p-4 shadow-sm" ref={canvasRef}>
                 <CanvasArea
                   content={canvasContent.content}
                   contentType={canvasContent.contentType}

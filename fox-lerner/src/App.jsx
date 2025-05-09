@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { BookOpen } from 'lucide-react';
-import ChatInterface from './components/chatInterface'; 
+import ChatInterface from './components/ChatInterface';
 import LearningModule from './components/LearningModule';
 import DashboardView from './components/DashboardView';
 import Sidebar from './components/Sidebar';
 import Syllabus from './components/Syllabus';
 import ProjectDashboard from './components/ProjectDashboard';
-import Assessment from './components/Assessment'; // Fixed the typo in the import
-
+import Assessment from './components/Assessment';
+import Notes from './components/Notes';
 
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -17,42 +17,83 @@ const App = () => {
   const [showSyllabus, setShowSyllabus] = useState(true);
   const [activeProject, setActiveProject] = useState(null);
   const [projectName, setProjectName] = useState('');
-  const [projects, setProjects] = useState([]);  // Track projects at the App level
-  
+  const [projects, setProjects] = useState([]); // Track projects at the App level
+
+  // State for notes
+  const [notesData, setNotesData] = useState([
+    {
+      id: 1,
+      subject: 'Mathematics',
+      content: 'Review calculus formulas for the upcoming test. Focus on integration by parts and substitution methods.',
+      timestamp: '2025-05-08T14:30:00Z',
+      color: 'bg-blue-50 text-blue-500'
+    },
+    {
+      id: 2,
+      subject: 'OOPS with C++',
+      content: 'Study inheritance, polymorphism, and encapsulation concepts. Practice virtual functions and operator overloading examples.',
+      timestamp: '2025-05-07T09:15:00Z',
+      color: 'bg-purple-50 text-purple-500'
+    },
+    {
+      id: 3,
+      subject: 'Data Structures',
+      content: 'Implement binary search tree and heap data structures. Analyze time complexity for each operation.',
+      timestamp: '2025-05-06T11:45:00Z',
+      color: 'bg-green-50 text-green-500'
+    },
+    {
+      id: 4,
+      subject: 'Computer Networks',
+      content: 'Study TCP/IP protocol stack, OSI model layers, and routing algorithms. Review subnet masking calculations.',
+      timestamp: '2025-05-05T16:20:00Z',
+      color: 'bg-orange-50 text-orange-500'
+    },
+    {
+      id: 5,
+      subject: 'Software Engineering',
+      content: 'Review software development life cycle models. Study agile methodologies and scrum practices.',
+      timestamp: '2025-05-04T10:00:00Z',
+      color: 'bg-red-50 text-red-500'
+    }
+  ]);
+
+  // Function to add a new note
+  const addNote = (newNote) => {
+    setNotesData([newNote, ...notesData]);
+  };
+
   const handleLogin = () => {
     setIsLoggedIn(true);
   };
 
-  const handleNavItemClick = (itemId, projectNameParam) => {
-    // Check if the clicked item is a project
-    if (itemId.startsWith('project_')) {
-      const projectId = itemId;
-      // Use the project name passed from the Sidebar component
-      setProjectName(projectNameParam || 'Unnamed Project');
-      setActiveProject(projectId);
-      setCurrentView('project');
-    } else {
-      if (itemId === 'learning') {
-        setShowSyllabus(false);
-      }
-      
-      setCurrentView(itemId);
-      // Reset chat question when navigating to other views
-      if (itemId !== 'chat') {
-        setChatQuestion('');
-        setSelectedLesson(null);
-      }
-      
-      setActiveProject(null);
+const handleNavItemClick = (itemId, projectNameParam) => {
+  if (itemId.startsWith('project_')) {
+    const projectId = itemId;
+    setProjectName(projectNameParam || 'Unnamed Project');
+    setActiveProject(projectId);
+    setCurrentView('project');
+  } else {
+    if (itemId === 'learning') {
+      setShowSyllabus(false); // Initially hide syllabus to show subjects/cards first
     }
-  };
 
-  // Function to handle new projects created in the Sidebar
+    setCurrentView(itemId);
+
+    if (itemId !== 'chat') {
+      setChatQuestion('');
+      setSelectedLesson(null);
+    }
+
+    setActiveProject(null);
+  }
+};
+
+
   const handleProjectAdded = (newProject) => {
     setProjects([...projects, newProject]);
   };
 
-  // Function to handle project updates from the Sidebar
   const handleProjectUpdated = (updatedProjects) => {
     setProjects(updatedProjects);
   };
@@ -84,7 +125,6 @@ const App = () => {
     setActiveProject(null);
   };
 
-  // Updated Login Page Component with improved responsiveness and no blue bubbles
   const LoginPage = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -183,12 +223,10 @@ const App = () => {
     );
   };
 
-  // If not logged in, show login page
   if (!isLoggedIn) {
     return <LoginPage />;
   }
 
-  // Main app layout after login
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       <Sidebar 
@@ -218,17 +256,25 @@ const App = () => {
           <LearningModule onCardClick={handleCardClick} />
         )}
         {currentView === 'chat' && (
-          <ChatInterface 
-            initialQuestion={chatQuestion} 
-            selectedLesson={selectedLesson}
-            onBackClick={handleBackToSyllabus}
-          />
+<ChatInterface
+  category="Your Category"
+  categoryIcon={<YourIcon />}
+  categoryColor="your-color-class"
+  initialQuestion={chatQuestion}
+  selectedLesson={selectedLesson}
+  onBackClick={handleBackToSyllabus}
+  addNote={addNote} // <-- must be correctly passed here
+  onNavigate={setCurrentView}
+/>
         )}
         {currentView === 'dashboard' && (
           <DashboardView />
         )}
         {currentView === 'assessment' && (
           <Assessment />
+        )}
+        {currentView === 'notes' && (
+          <Notes notesData={notesData} setNotesData={setNotesData} />
         )}
         {currentView === 'schedule' && (
           <div className="flex-1 bg-slate-50 p-6 overflow-y-auto">
