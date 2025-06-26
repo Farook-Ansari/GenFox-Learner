@@ -18,43 +18,6 @@ import {
   ScreenShare,
 } from "lucide-react";
 import CanvasArea from "./CanvasArea";
-const questionAnswerFlow = [
-  {
-    question: /linear data structures/i,
-    chatResponse:
-      "Sure! Linear data structures arrange elements sequentially. Examples include arrays, linked lists, stacks, and queues.",
-    canvasContent: {
-      content:
-        "Linear Data Structure\nElements are arranged in a sequential manner.",
-      contentType: "text",
-      title: "Linear Data Structures",
-      language: "plaintext",
-    },
-  },
-  {
-    question: /Great. Could you explain what an array is?/i,
-    chatResponse:
-      "An array is a collection of elements stored at contiguous memory locations, accessible by an index starting from zero.",
-    canvasContent: {
-      content:
-        "\n\nArray Representation\nIndices from 0 onwards.\n[Element 0, Element 1, Element 2, ...]",
-      contentType: "text",
-      title: "Linear Data Structures",
-      language: "plaintext",
-    },
-  },
-  {
-    question: /first element.*index 0/i,
-    chatResponse:
-      "Exactly! Would you like to see a visual example and do a quick quiz?",
-    canvasContent: {
-      content: `\n\nQuiz\nGiven arr = [10, 20, 30, 40], what is arr[2]?\n- 10\n- 20\n- 30\n- 40\n\nMisconception\n❌ Arrays can grow or shrink dynamically.\n✅ Arrays have fixed size once created.\n\nRelated Concepts\n- Linked List: elements connected via pointers.\n- Stack: LIFO principle.\n- Queue: FIFO principle.\nGreat! Would you like to learn about linked lists next or practice more array operations?`,
-      contentType: "text",
-      title: "Linear Data Structures",
-      language: "plaintext",
-    },
-  },
-];
 
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_DELAY = 3000;
@@ -76,11 +39,11 @@ const ChatInterface = ({
   const [voiceStatus, setVoiceStatus] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [quizAnswers, setQuizAnswers] = useState({});
 
   const recognition = useRef(null);
   const recognitionRef = useRef(null);
   const audioRef = useRef(null);
-
   const messagesEndRef = useRef(null);
   const [showCanvas, setShowCanvas] = useState(false);
   const [canvasContent, setCanvasContent] = useState({
@@ -102,11 +65,10 @@ const ChatInterface = ({
 
   const videoRef = useRef(null);
   const mediaStreamRef = useRef(null);
-
   const inputRef = useRef(null);
 
   const [showDropdown, setShowDropdown] = useState(false);
-  const [selectedOption, setSelectedOption] = useState("solve");
+  const [selectedOption, setSelectedOption] = useState("teach");
   const [optionSelected, setOptionSelected] = useState(true);
 
   const [showChatDropdown, setShowChatDropdown] = useState(false);
@@ -118,7 +80,6 @@ const ChatInterface = ({
   const [noteMenuPosition, setNoteMenuPosition] = useState({ top: 0, left: 0 });
   const [isRecognitionActive, setIsRecognitionActive] = useState(false);
   const canvasRef = useRef(null);
-
   const ws = useRef(null);
 
   const scrollToBottom = () => {
@@ -126,8 +87,6 @@ const ChatInterface = ({
   };
 
   const [previousContent, setPreviousContent] = useState("");
-
-  const [isLearnWithMeMode, setIsLearnWithMeMode] = useState(false);
 
   const base64ToBlob = (base64, mimeType) => {
     const byteCharacters = atob(base64);
@@ -144,35 +103,55 @@ const ChatInterface = ({
       ws.current &&
       [WebSocket.OPEN, WebSocket.CONNECTING].includes(ws.current.readyState)
     ) {
+      console.log("WebSocket already open or connecting, attempt:", attempt);
       return;
     }
 
-    ws.current = new WebSocket("ws://localhost:8765/ws"); // ✅ correct
+    ws.current = new WebSocket("ws://localhost:8765/ws");
     let reconnectTimer = null;
 
     ws.current.onopen = () => {
-      console.log("WebSocket connection opened");
+      console.log("WebSocket connection opened, attempt:", attempt); // Debug log
       if (reconnectTimer) clearTimeout(reconnectTimer);
     };
 
     ws.current.onmessage = async (event) => {
       const data = JSON.parse(event.data);
+      console.log("Received data from backend:", data); // Debug log
       const newMessage = {
         type: "assistant",
         content: data.text,
         mode: data.mode,
+        quizOptions: data.quizOptions || null,
       };
 
       setMessages((prev) => [...prev, newMessage]);
       setPreviousContent(canvasContent.content);
-      setFullExplanation(data.text);
-      setCurrentExplanation("");
-      if (data.mode !== "memorize") {
+      if (data.responseType === "quiz") {
+        setCanvasContent({
+          content: JSON.stringify(data.quizQuestions),
+          contentType: "quiz",
+          title: `Quiz on ${inputText}`,
+          language: "plaintext",
+        });
         setShowCanvas(true);
+      } else {
+        console.log("Setting canvas content with:", data.detailed); // Debug log
+        setCanvasContent({
+          content: data.detailed,
+          contentType: "markdown",
+          title: `Explanation for "${inputText}"`,
+          language: "plaintext",
+        });
+        setFullExplanation(data.detailed);
+        setCurrentExplanation("");
+        setShowCanvas(true);
+        setTimeout(() => setIsTyping(true), 50);
       }
-      setTimeout(() => setIsTyping(true), 50);
 
-      if (data.mode === "voice" && data.audio) {
+      if (data.mode === "voice_query" && data.audio) {
+        // Changed from "voice" to "voice_query"
+        console.log("Processing voice response with audio"); // Debug log
         stopRecognition();
         const audioBlob = base64ToBlob(data.audio, "audio/mp3");
         const audioUrl = URL.createObjectURL(audioBlob);
@@ -181,14 +160,14 @@ const ChatInterface = ({
 
         audioTimeoutRef.current = setTimeout(() => {
           if (isPlayingAudio) {
-            console.warn("Audio playback timeout");
+            console.warn("Audio playback timeout"); // Debug log
             setIsPlayingAudio(false);
             if (isVoiceModeActive) startRecognition();
           }
         }, 10000);
 
         audioRef.current.play().catch((e) => {
-          console.error("Error playing audio:", e);
+          console.error("Error playing audio:", e); // Debug log
           clearTimeout(audioTimeoutRef.current);
           setIsPlayingAudio(false);
           if (isVoiceModeActive) startRecognition();
@@ -219,7 +198,6 @@ const ChatInterface = ({
 
   useEffect(() => {
     connectWebSocket();
-
     return () => {
       if (ws.current?.readyState === WebSocket.OPEN) {
         ws.current.close(1000, "Component unmounted");
@@ -269,7 +247,9 @@ const ChatInterface = ({
     if (
       !("SpeechRecognition" in window || "webkitSpeechRecognition" in window)
     ) {
+      console.error("Speech recognition not supported in this browser");
       alert("Speech recognition is not supported in this browser.");
+      setVoiceStatus("Speech recognition not supported");
       return;
     }
 
@@ -277,10 +257,12 @@ const ChatInterface = ({
       const SpeechRecognition =
         window.SpeechRecognition || window.webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = false;
+      recognitionRef.current.continuous = true; // Keep listening until stopped
+      recognitionRef.current.interimResults = false; // Only final results
       recognitionRef.current.lang = "en-US";
+
       recognitionRef.current.onstart = () => {
+        console.log("Speech recognition started"); // Debug log
         setIsRecognitionActive(true);
         setVoiceStatus("Listening...");
       };
@@ -288,42 +270,79 @@ const ChatInterface = ({
       recognitionRef.current.onresult = (event) => {
         const transcript =
           event.results[event.results.length - 1][0].transcript;
+        console.log("Transcribed text:", transcript); // Debug log
         setInputText(transcript);
         setIsProcessing(true);
         setVoiceStatus("Processing...");
         if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+          console.log("Sending voice query to backend:", {
+            // Debug log
+            type: "voice_query",
+            question: transcript,
+            frame: currentFrame ? "Frame data present" : "No frame",
+            mode: selectedOption,
+          });
           ws.current.send(
             JSON.stringify({
               type: "voice_query",
               question: transcript,
               frame: currentFrame,
+              mode: selectedOption,
             })
           );
+        } else {
+          console.error("WebSocket not open for sending voice query");
+          setVoiceStatus("WebSocket connection error");
         }
       };
 
       recognitionRef.current.onend = () => {
+        console.log("Speech recognition ended"); // Debug log
         setIsRecognitionActive(false);
         if (isVoiceModeActive && !isPlayingAudio) {
-          startRecognition();
+          console.log("Restarting recognition due to voice mode active");
+          startRecognition(); // Restart if voice mode is still active
+        } else {
+          setVoiceStatus("");
         }
       };
 
       recognitionRef.current.onerror = (event) => {
-        console.error("Speech recognition error:", event.error);
+        console.error("Speech recognition error:", event.error); // Debug log
         setVoiceStatus(`Error: ${event.error}`);
-        if (isVoiceModeActive) {
-          setTimeout(startRecognition, 1000);
+        if (event.error === "no-speech") {
+          console.log("No speech detected, restarting recognition");
+          if (isVoiceModeActive) setTimeout(startRecognition, 500);
+        } else if (
+          event.error === "not-allowed" ||
+          event.error === "service-not-allowed"
+        ) {
+          alert(
+            "Microphone access denied. Please allow microphone permissions."
+          );
+          setIsVoiceModeActive(false);
         }
       };
     }
+
     if (!isRecognitionActive) {
-      try {
-        recognitionRef.current.start();
-      } catch (error) {
-        console.error("Failed to start recognition:", error);
-        setVoiceStatus("Error starting recognition");
-      }
+      navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .then(() => {
+          console.log("Microphone access granted");
+          try {
+            recognitionRef.current.start();
+          } catch (error) {
+            console.error("Failed to start recognition:", error); // Debug log
+            setVoiceStatus("Error starting recognition");
+          }
+        })
+        .catch((err) => {
+          console.error("Microphone permission denied:", err); // Debug log
+          alert("Please allow microphone access to use voice mode.");
+          setVoiceStatus("Microphone access denied");
+          setIsVoiceModeActive(false);
+        });
     }
   };
 
@@ -335,18 +354,21 @@ const ChatInterface = ({
 
   const handleMicClick = () => {
     if (isVoiceModeActive) {
+      console.log("Stopping voice mode");
       setIsVoiceModeActive(false);
-      stopRecognition(); // Stop when disabling voice mode
+      stopRecognition();
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
       }
       setVoiceStatus("");
     } else {
+      console.log("Starting voice mode");
       setIsVoiceModeActive(true);
       startRecognition();
     }
   };
+
   const handleAudioEvents = (audio) => {
     audio.addEventListener("canplay", () => {
       console.log("Audio can play");
@@ -374,6 +396,7 @@ const ChatInterface = ({
       }
     });
   };
+
   const audioTimeoutRef = useRef(null);
 
   async function startScreenShare() {
@@ -457,22 +480,18 @@ const ChatInterface = ({
     };
     setMessages([...messages, newMessage]);
 
-    // Handle WebSocket for "Learn With Me" mode or screen sharing
-    if (
-      (selectedOption === "memorize" || currentFrame) &&
-      ws.current &&
-      ws.current.readyState === WebSocket.OPEN
-    ) {
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
       setIsProcessing(true);
       ws.current.send(
         JSON.stringify({
           type: isVoice ? "voice_query" : "text_query",
           question: inputText,
           frame: currentFrame,
+          mode: selectedOption,
+          category: category,
         })
       );
     } else {
-      // Check for predefined flow for other modes
       const matchedFlow = questionAnswerFlow.find((flow) =>
         flow.question.test(inputText)
       );
@@ -481,7 +500,7 @@ const ChatInterface = ({
         const canvasData = matchedFlow.canvasContent;
 
         if (matchedFlow.question.test(/first element.*index 0/i)) {
-          setSelectedOption("practice");
+          setSelectedOption("quiz");
           setOptionSelected(true);
         }
 
@@ -490,8 +509,7 @@ const ChatInterface = ({
             ...prev,
             { type: "assistant", content: chatResponse },
           ]);
-          // Only set canvas content and show canvas for non-memorize modes
-          if (selectedOption !== "memorize") {
+          if (selectedOption !== "learn") {
             setPreviousContent(canvasContent.content);
             setFullExplanation(canvasData.content);
             setCurrentExplanation("");
@@ -500,7 +518,6 @@ const ChatInterface = ({
           }
         }, 1000);
       } else {
-        // Fallback response if WebSocket is unavailable and no flow match
         console.warn(
           "WebSocket is not open or no flow match. Falling back to default response."
         );
@@ -517,8 +534,7 @@ const ChatInterface = ({
             ...prev,
             { type: "assistant", content: chatResponse },
           ]);
-          // Only set canvas content and show canvas for non-memorize modes
-          if (selectedOption !== "memorize") {
+          if (selectedOption !== "learn") {
             setPreviousContent(canvasContent.content);
             setFullExplanation(canvasData.content);
             setCurrentExplanation("");
@@ -530,6 +546,41 @@ const ChatInterface = ({
     }
 
     setInputText("");
+  };
+
+  const handleQuizSubmit = (messageIndex) => {
+    const message = messages[messageIndex];
+    const selected = quizAnswers[messageIndex] || [];
+    const correctAnswer = "30"; // Example correct answer
+    const isCorrect = selected.includes(correctAnswer) && selected.length === 1;
+    const feedback = isCorrect
+      ? "Correct! arr[2] is 30."
+      : `Incorrect. The correct answer is 30. You selected: ${selected.join(
+          ", "
+        )}.`;
+
+    setMessages((prev) =>
+      prev.map((msg, idx) =>
+        idx === messageIndex ? { ...msg, feedback } : msg
+      )
+    );
+  };
+
+  const handleCheckboxChange = (messageIndex, option) => {
+    setQuizAnswers((prev) => {
+      const currentAnswers = prev[messageIndex] || [];
+      if (currentAnswers.includes(option)) {
+        return {
+          ...prev,
+          [messageIndex]: currentAnswers.filter((ans) => ans !== option),
+        };
+      } else {
+        return {
+          ...prev,
+          [messageIndex]: [...currentAnswers, option],
+        };
+      }
+    });
   };
 
   const handleSelectExplainMode = (mode) => {
@@ -593,8 +644,7 @@ const ChatInterface = ({
   const handleOpenExplainOptions = (message) => {
     setSelectedMessage(message);
     setExplainMode("chat");
-    setIsLearnWithMeMode(selectedOption === "memorize");
-    if (selectedOption === "memorize") {
+    if (selectedOption === "learn") {
       startLearningSession(message);
     } else {
       startExplanation(message);
@@ -602,12 +652,12 @@ const ChatInterface = ({
   };
 
   const startExplanation = (message) => {
-    const explanation = `Here's a simpler explanation of:\n\n"${message}"\n\n🦊 Fox explanation:\nThis means the AI assistant is giving you a placeholder response about ${category}. In a real app, this would be replaced with an actual helpful answer based on your question.`;
+    const explanation = `Here's a simpler explanation of:\n\n"${message}"\n\nThis means the AI assistant is providing a detailed response about ${category}.`;
 
     setCanvasContent({
       content: "",
       contentType: "text",
-      title: `Fox Explanation (${
+      title: `Explanation (${
         explainMode.charAt(0).toUpperCase() + explainMode.slice(1)
       } Mode)`,
     });
@@ -653,7 +703,6 @@ const ChatInterface = ({
   useEffect(() => {
     if (!showCanvas) {
       cleanupMediaResources();
-      setIsLearnWithMeMode(false);
       setCanvasContent({
         content: "",
         contentType: "text",
@@ -747,7 +796,6 @@ const ChatInterface = ({
     setIsTyping(false);
     setCurrentExplanation("");
     setExplainMode("chat");
-    setIsLearnWithMeMode(false);
     cleanupMediaResources();
   };
 
@@ -757,31 +805,28 @@ const ChatInterface = ({
       if (selectedOption) {
         handleSendMessage();
       } else {
-        alert("Please select an option first (Solve, Memorize, or Practice)");
+        alert(
+          "Please select an option first (Teach Me, Learn With Me, or Quiz Me)"
+        );
       }
     }
   };
 
   const handleOptionSelect = (option) => {
-    const previousOption = selectedOption;
     setSelectedOption(option);
     setShowDropdown(false);
     setOptionSelected(true);
-    setIsLearnWithMeMode(option === "memorize");
-
-    if (option !== "memorize" && previousOption === "memorize") {
-      handleCloseCanvas();
-    }
   };
+
   const startLearningSession = (message) => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
       setIsProcessing(true);
       ws.current.send(
         JSON.stringify({
           type: "text_query",
-          question: `Explain ${message} in a learning session for ${category} using memorization techniques`,
+          question: `Explain ${message} in a learning session for ${category} using interactive examples`,
           frame: currentFrame,
-          mode: "memorize",
+          mode: "learn",
         })
       );
       setCanvasContent({
@@ -795,31 +840,10 @@ const ChatInterface = ({
       setFullExplanation("");
       setShowCanvas(true);
       setExplainMode("chat");
-      setIsLearnWithMeMode(true);
-    } else {
-      // Fallback if WebSocket is unavailable
-      console.warn(
-        "WebSocket is not open. Falling back to default learning session."
-      );
-      const learningContent = `# Learning Session for ${category}\n\nWelcome to your learning session! This canvas will help you memorize key concepts about ${category}.\n\n## Key Points\n\n- Point 1: This is where key learning material would appear\n- Point 2: More detailed explanations would be shown here\n- Point 3: Visual aids and memory techniques would be displayed`;
-      setCanvasContent({
-        content: "",
-        contentType: "text",
-        title: `Learn With Me: ${category}`,
-        language: "plaintext",
-      });
-      setPreviousContent("");
-      setFullExplanation(learningContent);
-      setCurrentExplanation("");
-      setShowCanvas(true);
-      setExplainMode("chat");
-      setIsLearnWithMeMode(true);
-      setTimeout(() => setIsTyping(true), 50);
     }
   };
 
   const handleChatSelect = (chat) => {
-    console.log(`Selected chat: ${chat}`);
     setSelectedChat(chat);
     setShowChatDropdown(false);
     setChatSelected(true);
@@ -860,9 +884,9 @@ const ChatInterface = ({
   };
 
   const optionLabels = {
-    solve: "Teach Me",
-    memorize: "LearnWithMe",
-    practice: "Quiz Me",
+    teach: "Teach Me",
+    learn: "Learn With Me",
+    quiz: "Quiz Me",
   };
 
   const chatOptions = ["chat1", "chat2", "chat3"];
@@ -870,13 +894,11 @@ const ChatInterface = ({
   return (
     <div className="flex flex-col h-full bg-white">
       <div className="flex-1 flex">
-        {/* Chat Interface */}
         <div
           className={`${
             showCanvas ? "w-2/5" : "w-full"
           } flex flex-col border-r border-slate-100`}
         >
-          {/* Chat Header - Sticky */}
           <div className="sticky top-0 z-10 border-b border-slate-100 bg-white p-3 flex items-center justify-between text-slate-700 shadow-sm">
             <div className="flex items-center flex-1">
               <button
@@ -954,11 +976,7 @@ const ChatInterface = ({
             </div>
           </div>
 
-          {/* Chat Content - Scrollable */}
-          <div
-            className="overflow-y-auto py-3 px-3 bg-slate-50"
-            style={{ height: "calc(100vh - 64px - 96px)" }}
-          >
+          <div className="flex-1 overflow-y-auto py-3 px-3 bg-slate-50">
             {messages.map((message, index) => (
               <div
                 key={index}
@@ -976,6 +994,47 @@ const ChatInterface = ({
                         <p className="text-sm text-slate-700">
                           {message.content}
                         </p>
+                        {selectedOption === "quiz" && message.quizOptions && (
+                          <div className="mt-2">
+                            {message.quizOptions.map((option, optIndex) => (
+                              <label
+                                key={optIndex}
+                                className="flex items-center space-x-2"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={(quizAnswers[index] || []).includes(
+                                    option
+                                  )}
+                                  onChange={() =>
+                                    handleCheckboxChange(index, option)
+                                  }
+                                  className="form-checkbox text-indigo-600"
+                                />
+                                <span className="text-sm text-slate-700">
+                                  {option}
+                                </span>
+                              </label>
+                            ))}
+                            <button
+                              className="mt-2 px-2 py-1 bg-indigo-500 text-white rounded hover:bg-indigo-600"
+                              onClick={() => handleQuizSubmit(index)}
+                            >
+                              Submit
+                            </button>
+                            {message.feedback && (
+                              <p
+                                className={`mt-2 text-sm ${
+                                  message.feedback.includes("Correct")
+                                    ? "text-green-600"
+                                    : "text-red-600"
+                                }`}
+                              >
+                                {message.feedback}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="mt-1 flex gap-1">
                         <button className="p-1 rounded-full hover:bg-white text-slate-400 transition-colors">
@@ -984,7 +1043,7 @@ const ChatInterface = ({
                         <button className="p-1 rounded-full hover:bg-white text-slate-400 transition-colors">
                           <ThumbsDown size={12} />
                         </button>
-                        {selectedOption !== "memorize" && (
+                        {selectedOption !== "learn" && (
                           <button
                             className="px-1 py-0.5 rounded-full hover:bg-white text-slate-500 flex items-center transition-colors"
                             onClick={() =>
@@ -995,7 +1054,7 @@ const ChatInterface = ({
                             <span className="ml-1 text-xs">Explain it Fox</span>
                           </button>
                         )}
-                        {selectedOption === "memorize" && (
+                        {selectedOption === "learn" && (
                           <button
                             className="px-1 py-0.5 rounded-full hover:bg-white text-slate-500 flex items-center transition-colors"
                             onClick={() =>
@@ -1020,9 +1079,8 @@ const ChatInterface = ({
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input Area - Pinned to Bottom */}
           <div className="border-t border-slate-100 bg-white p-3">
-            {isLearnWithMeMode && (
+            {selectedOption === "learn" && (
               <div className="mb-2 flex justify-center">
                 <div className="flex gap-1 bg-slate-50 rounded-lg p-1 shadow-sm">
                   <button
@@ -1118,13 +1176,11 @@ const ChatInterface = ({
           </div>
         </div>
 
-        {/* Canvas Area */}
         {showCanvas && (
           <div className="w-3/5 flex flex-col relative">
-            {/* Canvas Header - Sticky */}
             <div className="sticky top-0 z-10 bg-white p-2 flex justify-between items-center text-black shadow-sm">
               <h3 className="font-medium flex items-center text-sm">
-                {isLearnWithMeMode ? (
+                {selectedOption === "learn" ? (
                   <>
                     <span className="mr-1 text-base">📚</span>
                     Learn With Me: {category}
@@ -1203,7 +1259,6 @@ const ChatInterface = ({
               </button>
             </div>
 
-            {/* Canvas Content - Scrollable */}
             <div
               className="flex-1 overflow-y-auto p-3 bg-slate-50 relative mt-12"
               style={{ height: "calc(100vh - 60px)" }}
