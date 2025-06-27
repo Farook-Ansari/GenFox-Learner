@@ -57,7 +57,7 @@ const ChatInterface = ({
   const [isTyping, setIsTyping] = useState(false);
   const [fullExplanation, setFullExplanation] = useState("");
   const [currentExplanation, setCurrentExplanation] = useState("");
-  const typingSpeedRef = useRef(10);
+  const typingSpeedRef = useRef(2);
 
   const [explainMode, setExplainMode] = useState("chat");
   const [micActive, setMicActive] = useState(false);
