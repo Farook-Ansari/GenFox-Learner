@@ -40,6 +40,7 @@ const ChatInterface = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState({});
+  const [previousContent, setPreviousContent] = useState(""); // Added state for previousContent
 
   const recognition = useRef(null);
   const recognitionRef = useRef(null);
@@ -86,8 +87,6 @@ const ChatInterface = ({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const [previousContent, setPreviousContent] = useState("");
-
   const base64ToBlob = (base64, mimeType) => {
     const byteCharacters = atob(base64);
     const byteNumbers = new Array(byteCharacters.length);
@@ -111,13 +110,13 @@ const ChatInterface = ({
     let reconnectTimer = null;
 
     ws.current.onopen = () => {
-      console.log("WebSocket connection opened, attempt:", attempt); // Debug log
+      console.log("WebSocket connection opened, attempt:", attempt);
       if (reconnectTimer) clearTimeout(reconnectTimer);
     };
 
     ws.current.onmessage = async (event) => {
       const data = JSON.parse(event.data);
-      console.log("Received data from backend:", data); // Debug log
+      console.log("Received data from backend:", data);
       const newMessage = {
         type: "assistant",
         content: data.text,
@@ -126,7 +125,7 @@ const ChatInterface = ({
       };
 
       setMessages((prev) => [...prev, newMessage]);
-      setPreviousContent(canvasContent.content);
+      setPreviousContent(canvasContent.content); // Update previousContent
       if (data.responseType === "quiz") {
         setCanvasContent({
           content: JSON.stringify(data.quizQuestions),
@@ -136,7 +135,7 @@ const ChatInterface = ({
         });
         setShowCanvas(true);
       } else {
-        console.log("Setting canvas content with:", data.detailed); // Debug log
+        console.log("Setting canvas content with:", data.detailed);
         setCanvasContent({
           content: data.detailed,
           contentType: "markdown",
@@ -150,8 +149,7 @@ const ChatInterface = ({
       }
 
       if (data.mode === "voice_query" && data.audio) {
-        // Changed from "voice" to "voice_query"
-        console.log("Processing voice response with audio"); // Debug log
+        console.log("Processing voice response with audio");
         stopRecognition();
         const audioBlob = base64ToBlob(data.audio, "audio/mp3");
         const audioUrl = URL.createObjectURL(audioBlob);
@@ -160,14 +158,14 @@ const ChatInterface = ({
 
         audioTimeoutRef.current = setTimeout(() => {
           if (isPlayingAudio) {
-            console.warn("Audio playback timeout"); // Debug log
+            console.warn("Audio playback timeout");
             setIsPlayingAudio(false);
             if (isVoiceModeActive) startRecognition();
           }
         }, 10000);
 
         audioRef.current.play().catch((e) => {
-          console.error("Error playing audio:", e); // Debug log
+          console.error("Error playing audio:", e);
           clearTimeout(audioTimeoutRef.current);
           setIsPlayingAudio(false);
           if (isVoiceModeActive) startRecognition();
@@ -257,12 +255,12 @@ const ChatInterface = ({
       const SpeechRecognition =
         window.SpeechRecognition || window.webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true; // Keep listening until stopped
-      recognitionRef.current.interimResults = false; // Only final results
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = false;
       recognitionRef.current.lang = "en-US";
 
       recognitionRef.current.onstart = () => {
-        console.log("Speech recognition started"); // Debug log
+        console.log("Speech recognition started");
         setIsRecognitionActive(true);
         setVoiceStatus("Listening...");
       };
@@ -270,13 +268,12 @@ const ChatInterface = ({
       recognitionRef.current.onresult = (event) => {
         const transcript =
           event.results[event.results.length - 1][0].transcript;
-        console.log("Transcribed text:", transcript); // Debug log
+        console.log("Transcribed text:", transcript);
         setInputText(transcript);
         setIsProcessing(true);
         setVoiceStatus("Processing...");
         if (ws.current && ws.current.readyState === WebSocket.OPEN) {
           console.log("Sending voice query to backend:", {
-            // Debug log
             type: "voice_query",
             question: transcript,
             frame: currentFrame ? "Frame data present" : "No frame",
@@ -297,18 +294,18 @@ const ChatInterface = ({
       };
 
       recognitionRef.current.onend = () => {
-        console.log("Speech recognition ended"); // Debug log
+        console.log("Speech recognition ended");
         setIsRecognitionActive(false);
         if (isVoiceModeActive && !isPlayingAudio) {
           console.log("Restarting recognition due to voice mode active");
-          startRecognition(); // Restart if voice mode is still active
+          startRecognition();
         } else {
           setVoiceStatus("");
         }
       };
 
       recognitionRef.current.onerror = (event) => {
-        console.error("Speech recognition error:", event.error); // Debug log
+        console.error("Speech recognition error:", event.error);
         setVoiceStatus(`Error: ${event.error}`);
         if (event.error === "no-speech") {
           console.log("No speech detected, restarting recognition");
@@ -333,12 +330,12 @@ const ChatInterface = ({
           try {
             recognitionRef.current.start();
           } catch (error) {
-            console.error("Failed to start recognition:", error); // Debug log
+            console.error("Failed to start recognition:", error);
             setVoiceStatus("Error starting recognition");
           }
         })
         .catch((err) => {
-          console.error("Microphone permission denied:", err); // Debug log
+          console.error("Microphone permission denied:", err);
           alert("Please allow microphone access to use voice mode.");
           setVoiceStatus("Microphone access denied");
           setIsVoiceModeActive(false);
@@ -551,7 +548,7 @@ const ChatInterface = ({
   const handleQuizSubmit = (messageIndex) => {
     const message = messages[messageIndex];
     const selected = quizAnswers[messageIndex] || [];
-    const correctAnswer = "30"; // Example correct answer
+    const correctAnswer = "30";
     const isCorrect = selected.includes(correctAnswer) && selected.length === 1;
     const feedback = isCorrect
       ? "Correct! arr[2] is 30."
@@ -976,7 +973,7 @@ const ChatInterface = ({
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto py-3 px-3 bg-slate-50">
+          <div className="flex-1 overflow-y-auto py-3 px-3 bg-slate-50" style={{ maxHeight: 'calc(100vh - 120px)' }}>
             {messages.map((message, index) => (
               <div
                 key={index}
@@ -1003,17 +1000,11 @@ const ChatInterface = ({
                               >
                                 <input
                                   type="checkbox"
-                                  checked={(quizAnswers[index] || []).includes(
-                                    option
-                                  )}
-                                  onChange={() =>
-                                    handleCheckboxChange(index, option)
-                                  }
+                                  checked={(quizAnswers[index] || []).includes(option)}
+                                  onChange={() => handleCheckboxChange(index, option)}
                                   className="form-checkbox text-indigo-600"
                                 />
-                                <span className="text-sm text-slate-700">
-                                  {option}
-                                </span>
+                                <span className="text-sm text-slate-700">{option}</span>
                               </label>
                             ))}
                             <button
@@ -1046,9 +1037,7 @@ const ChatInterface = ({
                         {selectedOption !== "learn" && (
                           <button
                             className="px-1 py-0.5 rounded-full hover:bg-white text-slate-500 flex items-center transition-colors"
-                            onClick={() =>
-                              handleOpenExplainOptions(message.content)
-                            }
+                            onClick={() => handleOpenExplainOptions(message.content)}
                           >
                             <HelpCircle size={12} />
                             <span className="ml-1 text-xs">Explain it Fox</span>
@@ -1057,9 +1046,7 @@ const ChatInterface = ({
                         {selectedOption === "learn" && (
                           <button
                             className="px-1 py-0.5 rounded-full hover:bg-white text-slate-500 flex items-center transition-colors"
-                            onClick={() =>
-                              handleOpenExplainOptions(message.content)
-                            }
+                            onClick={() => handleOpenExplainOptions(message.content)}
                           >
                             <BookmarkPlus size={12} />
                             <span className="ml-1 text-xs">Explain It Fox</span>
@@ -1078,7 +1065,6 @@ const ChatInterface = ({
             ))}
             <div ref={messagesEndRef} />
           </div>
-
           <div className="border-t border-slate-100 bg-white p-3">
             {selectedOption === "learn" && (
               <div className="mb-2 flex justify-center">
@@ -1176,146 +1162,148 @@ const ChatInterface = ({
           </div>
         </div>
 
-        {showCanvas && (
-          <div className="w-3/5 flex flex-col relative">
-            <div className="sticky top-0 z-10 bg-white p-2 flex justify-between items-center text-black shadow-sm">
-              <h3 className="font-medium flex items-center text-sm">
-                {selectedOption === "learn" ? (
-                  <>
-                    <span className="mr-1 text-base">📚</span>
-                    Learn With Me: {category}
-                    {isTyping && (
-                      <span className="ml-1 inline-flex">
-                        <span className="animate-pulse">.</span>
-                        <span className="animate-pulse delay-100">.</span>
-                        <span className="animate-pulse delay-200">.</span>
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <span className="mr-1 text-base">🦊</span>
-                    {canvasContent.title}
-                    {isTyping && (
-                      <span className="ml-1 inline-flex">
-                        <span className="animate-pulse">.</span>
-                        <span className="animate-pulse delay-100">.</span>
-                        <span className="animate-pulse delay-200">.</span>
-                      </span>
-                    )}
-                    <div className="ml-2 flex gap-1">
-                      <button
-                        className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${
-                          explainMode === "chat"
-                            ? "bg-indigo-100 text-indigo-600"
-                            : "text-slate-400"
-                        }`}
-                        onClick={() => handleSelectExplainMode("chat")}
-                        title="Text explanation"
-                      >
-                        <MessageSquare size={12} />
-                      </button>
-                      <button
-                        className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${
-                          explainMode === "audio"
-                            ? "bg-indigo-100 text-indigo-600"
-                            : "text-slate-400"
-                        }`}
-                        onClick={() => handleSelectExplainMode("audio")}
-                        title="Voice explanation"
-                      >
-                        <Mic size={12} />
-                      </button>
-                      <button
-                        className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${
-                          explainMode === "video"
-                            ? "bg-indigo-100 text-indigo-600"
-                            : "text-slate-400"
-                        }`}
-                        onClick={() => handleSelectExplainMode("video")}
-                        title="Video explanation"
-                      >
-                        <Video size={12} />
-                      </button>
-                      {micActive && (
-                        <span className="ml-1 px-1 py-0.5 bg-red-100 text-red-600 rounded-full text-xs flex items-center">
-                          <Mic size={10} className="mr-0.5" /> Mic active
-                        </span>
-                      )}
-                      {cameraActive && (
-                        <span className="ml-1 px-1 py-0.5 bg-red-100 text-red-600 rounded-full text-xs flex items-center">
-                          <Video size={10} className="mr-0.5" /> Camera active
-                        </span>
-                      )}
-                    </div>
-                  </>
-                )}
-              </h3>
+{showCanvas && (
+  <div
+    className="w-3/5 flex flex-col relative"
+    style={{ maxHeight: "calc(100vh - 60px)" }} // Parent container height
+  >
+    <div className="sticky top-0 z-10 bg-white p-2 flex justify-between items-center text-black shadow-sm">
+      <h3 className="font-medium flex items-center text-sm">
+        {selectedOption === "learn" ? (
+          <>
+            <span className="mr-1 text-base">📚</span>
+            Learn With Me: {category}
+            {isTyping && (
+              <span className="ml-1 inline-flex">
+                <span className="animate-pulse">.</span>
+                <span className="animate-pulse delay-100">.</span>
+                <span className="animate-pulse delay-200">.</span>
+              </span>
+            )}
+          </>
+        ) : (
+          <>
+            <span className="mr-1 text-base">🦊</span>
+            {canvasContent.title}
+            {isTyping && (
+              <span className="ml-1 inline-flex">
+                <span className="animate-pulse">.</span>
+                <span className="animate-pulse delay-100">.</span>
+                <span className="animate-pulse delay-200">.</span>
+              </span>
+            )}
+            <div className="ml-2 flex gap-1">
               <button
-                className="p-1 rounded-full hover:bg-slate-200 transition-colors"
-                onClick={handleCloseCanvas}
+                className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${
+                  explainMode === "chat"
+                    ? "bg-indigo-100 text-indigo-600"
+                    : "text-slate-400"
+                }`}
+                onClick={() => handleSelectExplainMode("chat")}
+                title="Text explanation"
               >
-                <X size={14} />
+                <MessageSquare size={12} />
               </button>
-            </div>
-
-            <div
-              className="flex-1 overflow-y-auto p-3 bg-slate-50 relative mt-12"
-              style={{ height: "calc(100vh - 60px)" }}
-            >
-              {showAddNoteMenu && (
-                <div
-                  className="add-note-menu absolute bg-white rounded-lg shadow-lg py-1 px-3 z-20 flex items-center border border-indigo-100"
-                  style={{
-                    top: `${noteMenuPosition.top}px`,
-                    left: `${noteMenuPosition.left}px`,
-                  }}
-                >
-                  <button
-                    className="flex items-center gap-1 text-indigo-600 text-xs font-medium hover:text-indigo-800 transition-colors"
-                    onClick={handleAddNote}
-                  >
-                    <BookmarkPlus size={12} />
-                    Add note
-                  </button>
-                </div>
+              <button
+                className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${
+                  explainMode === "audio"
+                    ? "bg-indigo-100 text-indigo-600"
+                    : "text-slate-400"
+                }`}
+                onClick={() => handleSelectExplainMode("audio")}
+                title="Voice explanation"
+              >
+                <Mic size={12} />
+              </button>
+              <button
+                className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${
+                  explainMode === "video"
+                    ? "bg-indigo-100 text-indigo-600"
+                    : "text-slate-400"
+                }`}
+                onClick={() => handleSelectExplainMode("video")}
+                title="Video explanation"
+              >
+                <Video size={12} />
+              </button>
+              {micActive && (
+                <span className="ml-1 px-1 py-0.5 bg-red-100 text-red-600 rounded-full text-xs flex items-center">
+                  <Mic size={10} className="mr-0.5" /> Mic active
+                </span>
               )}
               {cameraActive && (
-                <div className="absolute bottom-6 right-6 z-10 transition-all duration-300 ease-in-out">
-                  <div className="group relative">
-                    <div className="w-28 h-28 rounded-xl overflow-hidden shadow-lg bg-gray-900 ring-2 ring-indigo-500 ring-opacity-70 transition-all duration-300 hover:ring-opacity-100">
-                      <video
-                        ref={videoRef}
-                        className="w-full h-full object-cover"
-                        autoPlay
-                        playsInline
-                        muted
-                      />
-                    </div>
-                    <div className="absolute -top-1 -right-1 bg-red-500 p-1 rounded-full shadow-md flex items-center justify-center">
-                      <Camera size={12} className="text-white" />
-                    </div>
-                    <div className="absolute -bottom-1 inset-x-0 bg-indigo-600 py-0.5 px-2 text-white text-xs font-medium text-center rounded-b-xl opacity-90">
-                      You
-                    </div>
-                  </div>
-                </div>
+                <span className="ml-1 px-1 py-0.5 bg-red-100 text-red-600 rounded-full text-xs flex items-center">
+                  <Video size={10} className="mr-0.5" /> Camera active
+                </span>
               )}
-              <div
-                className="bg-white rounded-lg p-3 shadow-sm min-h-full"
-                ref={canvasRef}
-              >
-                <CanvasArea
-                  content={canvasContent.content}
-                  contentType={canvasContent.contentType}
-                  language={canvasContent.language}
-                  title={canvasContent.title}
-                />
-              </div>
+            </div>
+          </>
+        )}
+      </h3>
+      <button
+        className="p-1 rounded-full hover:bg-slate-200 transition-colors"
+        onClick={handleCloseCanvas}
+      >
+        <X size={14} />
+      </button>
+    </div>
+
+    <div
+      className="flex-1 overflow-y-auto bg-slate-50 relative" // Single scrollbar here
+      style={{ height: "calc(100% - 32px)" }} // Subtract header height
+    >
+      {showAddNoteMenu && (
+        <div
+          className="add-note-menu absolute bg-white rounded-lg shadow-lg py-1 px-3 z-20 flex items-center border border-indigo-100"
+          style={{
+            top: `${noteMenuPosition.top}px`,
+            left: `${noteMenuPosition.left}px`,
+          }}
+        >
+          <button
+            className="flex items-center gap-1 text-indigo-600 text-xs font-medium hover:text-indigo-800 transition-colors"
+            onClick={handleAddNote}
+          >
+            <BookmarkPlus size={12} />
+            Add note
+          </button>
+        </div>
+      )}
+      {cameraActive && (
+        <div className="absolute bottom-6 right-6 z-10 transition-all duration-300 ease-in-out">
+          <div className="group relative">
+            <div className="w-28 h-28 rounded-xl overflow-hidden shadow-lg bg-gray-900 ring-2 ring-indigo-500 ring-opacity-70 transition-all duration-300 hover:ring-opacity-100">
+              <video
+                ref={videoRef}
+                className="w-full h-full object-cover"
+                autoPlay
+                playsInline
+                muted
+              />
+            </div>
+            <div className="absolute -top-1 -right-1 bg-red-500 p-1 rounded-full shadow-md flex items-center justify-center">
+              <Camera size={12} className="text-white" />
+            </div>
+            <div className="absolute -bottom-1 inset-x-0 bg-indigo-600 py-0.5 px-2 text-white text-xs font-medium text-center rounded-b-xl opacity-90">
+              You
             </div>
           </div>
-        )}
+        </div>
+      )}
+      <div
+        className="bg-white rounded-lg p-3 shadow-sm w-full"
+        ref={canvasRef}
+      >
+        <CanvasArea
+          content={canvasContent.content}
+          contentType={canvasContent.contentType}
+          language={canvasContent.language}
+          title={canvasContent.title}
+        />
       </div>
+    </div>
+  </div>
+)}      </div>
     </div>
   );
 };

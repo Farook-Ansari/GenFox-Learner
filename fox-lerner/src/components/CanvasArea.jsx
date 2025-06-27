@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Copy,
   Download,
@@ -68,7 +68,7 @@ const CanvasArea = ({
         currentLanguage
       );
     }
-  }, []);
+  }, [viewMode, onSwitchToBook, currentContent, currentTitle, currentContentType, currentLanguage]);
 
   useEffect(() => {
     if (
@@ -88,14 +88,23 @@ const CanvasArea = ({
       setQuizFeedback("");
       setQuizAnswers({});
       setQuizSubmitted(false);
+      if (contentRef.current) {
+        contentRef.current.scrollTop = 0;
+      }
     }
-  }, [content, contentType, language, title]);
+  }, [content, contentType, language, title, history, historyIndex]);
 
   useEffect(() => {
     if (currentContentType === "code" && viewMode === "canvas") {
       Prism.highlightAll();
     }
   }, [currentContent, currentContentType, currentLanguage, viewMode]);
+
+  useEffect(() => {
+    if (quizSubmitted && contentRef.current) {
+      contentRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  }, [quizSubmitted]);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(currentContent);
@@ -152,6 +161,9 @@ const CanvasArea = ({
       setHistoryIndex(newIndex);
       setSelectedAnswer(null);
       setQuizFeedback("");
+      if (contentRef.current) {
+        contentRef.current.scrollTop = 0;
+      }
     }
   };
 
@@ -166,6 +178,9 @@ const CanvasArea = ({
       setHistoryIndex(newIndex);
       setSelectedAnswer(null);
       setQuizFeedback("");
+      if (contentRef.current) {
+        contentRef.current.scrollTop = 0;
+      }
     }
   };
 
@@ -203,7 +218,7 @@ const CanvasArea = ({
         return "JavaScript";
       case "jsx":
         return "React JSX";
-      case "python":
+        case "python":
         return "Python";
       case "java":
         return "Java";
@@ -212,7 +227,7 @@ const CanvasArea = ({
       case "css":
         return "CSS";
       case "json":
-        return "JSON";
+        return "JSO";
       default:
         return (
           currentLanguage.charAt(0).toUpperCase() + currentLanguage.slice(1)
@@ -331,7 +346,6 @@ const CanvasArea = ({
     useEffect(() => {
       const renderMermaid = async () => {
         try {
-          // Use a temporary ID; Mermaid will create a temp element if it doesn't exist
           const { svg } = await mermaid.render("mermaid-temp", code);
           setSvg(svg);
         } catch (error) {
@@ -374,7 +388,7 @@ const CanvasArea = ({
             <div key={index} className="mb-6">
               <p className="text-sm font-medium mb-2">{q.question}</p>
               {q.options.map((option, optIndex) => (
-                <label key={optIndex} className="block mb-1">
+                <label key={optIndex} className="block mb-2 pl-2">
                   <input
                     type="radio"
                     name={`question-${index}`}
@@ -389,14 +403,14 @@ const CanvasArea = ({
                       )
                     }
                     disabled={quizSubmitted}
-                    className="mr-2"
+                    className="mr-2 align-middle"
                   />
-                  {option}
+                  <span className="text-sm text-slate-700 align-middle">{option}</span>
                 </label>
               ))}
               {quizSubmitted && (
                 <p
-                  className={`text-sm mt-2 ${
+                  className={`text-sm mt-2 pl-2 ${
                     quizAnswers[index] === q.correct
                       ? "text-green-600"
                       : "text-red-600"
@@ -432,7 +446,7 @@ const CanvasArea = ({
               </div>
               <div className="flex-1 text-center">{getLanguageLabel()}</div>
             </div>
-            <pre className="p-4 overflow-auto text-sm bg-white custom-scrollbar">
+            <pre className="p-4 text-sm bg-white">
               <code ref={bookCodeRef} className="font-mono text-gray-800">
                 {currentContent}
               </code>
@@ -567,10 +581,7 @@ const CanvasArea = ({
             </div>
           </div>
         </div>
-        <div
-          className="flex-1 p-6 pt-4 overflow-y-auto custom-scrollbar"
-          style={{ maxHeight: "calc(100vh - 120px)" }}
-        >
+        <div className="flex-1 p-6 pt-4" ref={contentRef}>
           <div className="w-full">{formatCodeForBook()}</div>
         </div>
         <div className="sticky bottom-0 p-4 border-t border-gray-200 bg-white bg-opacity-90 backdrop-blur-sm flex justify-between items-center text-xs text-gray-500 shadow-inner">
@@ -611,23 +622,19 @@ const CanvasArea = ({
       case "quiz":
         const quizQuestions = JSON.parse(currentContent);
         return (
-          <div
-            className="p-6 overflow-y-auto custom-scrollbar"
-            style={{ maxHeight: "calc(100vh - 120px)" }}
-          >
+          <div className="p-6">
             <h3 className="text-lg font-medium mb-4">{currentTitle}</h3>
             {quizQuestions.map((q, index) => (
               <div key={index} className="mb-6">
                 <p className="text-sm font-medium mb-2">{q.question}</p>
                 {q.options.map((option, optIndex) => (
-                  <label key={optIndex} className="block mb-1">
+                  <label key={optIndex} className="block mb-2 pl-2">
                     <input
                       type="radio"
                       name={`question-${index}`}
                       value={String.fromCharCode(65 + optIndex)}
                       checked={
-                        quizAnswers[index] ===
-                        String.fromCharCode(65 + optIndex)
+                        quizAnswers[index] === String.fromCharCode(65 + optIndex)
                       }
                       onChange={() =>
                         handleQuizAnswerChange(
@@ -636,21 +643,21 @@ const CanvasArea = ({
                         )
                       }
                       disabled={quizSubmitted}
-                      className="mr-2"
+                      className="mr-2 align-middle"
                     />
-                    {option}
+                    <span className="text-sm text-slate-700 align-middle">{option}</span>
                   </label>
                 ))}
                 {quizSubmitted && (
                   <p
-                    className={`text-sm mt-2 ${
+                    className={`text-sm mt-2 pl-2 ${
                       quizAnswers[index] === q.correct
                         ? "text-green-600"
                         : "text-red-600"
                     }`}
                   >
-                    {quizAnswers[index] === q.correct ? "Correct" : "Incorrect"}
-                    . {q.explanation}
+                    {quizAnswers[index] === q.correct ? "Correct" : "Incorrect"}.{" "}
+                    {q.explanation}
                   </p>
                 )}
               </div>
@@ -667,14 +674,14 @@ const CanvasArea = ({
         );
       case "code":
         return (
-          <div className="relative h-full">
+          <div className="relative">
             {currentLanguage && (
               <div className="absolute top-4 right-4 bg-opacity-80 backdrop-blur-sm bg-gray-800 text-gray-200 px-3 py-1 rounded-full text-xs font-mono shadow-md z-10">
                 {getLanguageLabel()}
               </div>
             )}
             <pre
-              className={`language-${currentLanguage} line-numbers h-full overflow-auto m-0 rounded-none bg-gray-900 p-6 custom-scrollbar`}
+              className={`language-${currentLanguage} line-numbers m-0 rounded-none bg-gray-900 p-6`}
             >
               <code className={`language-${currentLanguage}`}>
                 {currentContent}
@@ -685,10 +692,7 @@ const CanvasArea = ({
       case "text":
         const { quiz, misconception, relatedConcepts } = parseContent();
         return (
-          <div
-            className="p-6 overflow-y-auto whitespace-pre-wrap text-slate-700 bg-white rounded-none space-y-6 custom-scrollbar"
-            style={{ maxHeight: "calc(100vh - 120px)" }}
-          >
+          <div className="p-6 whitespace-pre-wrap text-slate-700 bg-white rounded-none space-y-6">
             {currentContent.split("\n\n").map((section, index) => {
               if (section.startsWith("Quiz")) {
                 return (
@@ -739,10 +743,7 @@ const CanvasArea = ({
         );
       case "markdown":
         return (
-          <div
-            className="p-6 overflow-y-auto prose prose-slate max-w-none bg-white rounded-none custom-scrollbar prose-headings:font-semibold prose-headings:text-slate-800 prose-strong:text-slate-900 prose-ul:list-disc prose-ul:pl-6 prose-li:my-1"
-            style={{ maxHeight: "calc(100vh - 120px)" }}
-          >
+          <div className="p-6 prose prose-slate max-w-none bg-white rounded-none prose-headings:font-semibold prose-headings:text-slate-800 prose-strong:text-slate-900 prose-ul:list-disc prose-ul:pl-6 prose-li:my-1">
             <ReactMarkdown
               components={{
                 code({ node, inline, className, children, ...props }) {
@@ -778,23 +779,17 @@ const CanvasArea = ({
         );
       case "image":
         return (
-          <div
-            className="flex items-center justify-center h-full bg-slate-50 p-6 rounded-none custom-scrollbar"
-            style={{ maxHeight: "calc(100vh - 120px)" }}
-          >
+          <div className="flex items-center justify-center bg-slate-50 p-6 rounded-none">
             <img
               src={currentContent}
               alt="Content"
-              className="max-w-full max-h-full shadow-lg rounded-xl"
+              className="max-w-full max-h-[80%] shadow-lg rounded-xl"
             />
           </div>
         );
       default:
         return (
-          <div
-            className="p-6 overflow-y-auto whitespace-pre-wrap custom-scrollbar"
-            style={{ maxHeight: "calc(100vh - 120px)" }}
-          >
+          <div className="p-6 whitespace-pre-wrap">
             {currentContent}
           </div>
         );
@@ -840,20 +835,20 @@ const CanvasArea = ({
       } transition-all duration-200 ${animationClass}`}
     >
       <div
-        className={`z-20 px-4 py-3 flex justify-between items-center ${headerBg} ${headerText} ${borderColor} border-b backdrop-blur-sm bg-opacity-90`}
+        className={`z-20 px-4 py-3 flex items-center ${headerBg} ${headerText} ${borderColor} border-b backdrop-blur-sm bg-opacity-90`}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 max-w-[50%]">
           <div className="p-2 rounded-lg bg-opacity-20 backdrop-blur-sm">
             {getContentIcon()}
           </div>
-          <div className="font-medium truncate">{currentTitle}</div>
+          <div className="font-medium truncate text-sm">{currentTitle}</div>
           {currentContentType === "code" && (
             <span className="px-3 py-1 text-xs rounded-full bg-indigo-100 text-indigo-800 ml-2 shadow-sm">
               {getLanguageLabel()}
             </span>
           )}
         </div>
-        <div className="flex gap-1">
+        <div className="ml-auto flex items-center gap-2 bg-white rounded-lg px-3 py-1 shadow-sm">
           <button
             onClick={goBack}
             disabled={historyIndex === 0}
@@ -940,11 +935,7 @@ const CanvasArea = ({
         </div>
       )}
 
-      <div
-        ref={contentRef}
-        className="flex-1 overflow-y-auto custom-scrollbar"
-        style={{ maxHeight: "calc(100vh - 120px)" }}
-      >
+      <div ref={contentRef} className="flex-1">
         {hasActivatedCanvasView && renderCanvasContent()}
       </div>
 
