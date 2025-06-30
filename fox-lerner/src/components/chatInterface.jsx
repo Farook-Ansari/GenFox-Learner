@@ -478,7 +478,13 @@ const ChatInterface = ({
       content: inputText,
       mode: isVoice ? "voice" : "text",
     };
-    setMessages([...messages, newMessage]);
+    const updatedMessages = [...messages, newMessage];
+    setMessages(updatedMessages);
+
+    const history = updatedMessages.map((msg) => ({
+      role: msg.type,
+      content: msg.content,
+    }));
 
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
       setIsProcessing(true);
@@ -489,6 +495,7 @@ const ChatInterface = ({
           frame: currentFrame,
           mode: selectedOption,
           category: category,
+          history: history,
         })
       );
     } else {
