@@ -332,30 +332,33 @@ const CanvasArea = ({
     setQuizSubmitted(true);
   };
 
-  const Mermaid = ({ code }) => {
-    const [svg, setSvg] = useState(null);
-    const id = useMemo(
-      () => `mermaid-${Math.random().toString(36).substr(2, 9)}`,
-      []
-    );
+  const Mermaid = React.memo(
+    ({ code }) => {
+      const [svg, setSvg] = useState(null);
+      const id = useMemo(
+        () => `mermaid-${Math.random().toString(36).substr(2, 9)}`,
+        []
+      );
 
-    useEffect(() => {
-      const renderMermaid = async () => {
-        try {
-          const { svg } = await mermaid.render(id, code);
-          setSvg(svg);
-        } catch (error) {
-          console.error("Mermaid rendering error:", error);
-          setSvg(`<p>Error rendering diagram: ${error.message}</p>`);
-        }
-      };
-      renderMermaid();
-    }, [code, id]);
+      useEffect(() => {
+        const renderMermaid = async () => {
+          try {
+            const { svg } = await mermaid.render(id, code);
+            setSvg(svg);
+          } catch (error) {
+            console.error("Mermaid rendering error:", error);
+            setSvg(`<p>Error rendering diagram: ${error.message}</p>`);
+          }
+        };
+        renderMermaid();
+      }, [code, id]);
 
-    return (
-      <div className="mermaid" dangerouslySetInnerHTML={{ __html: svg }} />
-    );
-  };
+      return (
+        <div className="mermaid" dangerouslySetInnerHTML={{ __html: svg }} />
+      );
+    },
+    (prevProps, nextProps) => prevProps.code === nextProps.code
+  );
 
   const renderBookContent = () => {
     const getPageBackground = () => {
