@@ -40,20 +40,19 @@ const ChatInterface = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState({});
-  const [previousContent, setPreviousContent] = useState(""); // Added state for previousContent
+  const [accumulatedContent, setAccumulatedContent] = useState("");
+  const [canvasContent, setCanvasContent] = useState({
+    content: "",
+    contentType: "markdown",
+    title: "Conversation History",
+    language: "plaintext",
+  });
 
   const recognition = useRef(null);
   const recognitionRef = useRef(null);
   const audioRef = useRef(null);
   const messagesEndRef = useRef(null);
   const [showCanvas, setShowCanvas] = useState(false);
-  const [canvasContent, setCanvasContent] = useState({
-    content: "",
-    contentType: "text",
-    language: "plaintext",
-    title: "Linear Data Structures",
-  });
-
   const [isTyping, setIsTyping] = useState(false);
   const [fullExplanation, setFullExplanation] = useState("");
   const [currentExplanation, setCurrentExplanation] = useState("");
@@ -125,28 +124,22 @@ const ChatInterface = ({
       };
 
       setMessages((prev) => [...prev, newMessage]);
-      setPreviousContent(canvasContent.content); // Update previousContent
-      if (data.responseType === "quiz") {
+
+      const title =
+        data.responseType === "quiz"
+          ? `Quiz on "${data.question}"`
+          : `Explanation of "${data.question}"`;
+      setAccumulatedContent((prev) => {
+        const newContent =
+          prev + `\n\n## ${title}\n\n${data.detailed}\n\n---\n\n`;
         setCanvasContent({
-          content: JSON.stringify(data.quizQuestions),
-          contentType: "quiz",
-          title: `Quiz on ${inputText}`,
-          language: "plaintext",
-        });
-        setShowCanvas(true);
-      } else {
-        console.log("Setting canvas content with:", data.detailed);
-        setCanvasContent({
-          content: data.detailed,
+          content: newContent,
           contentType: "markdown",
-          title: `Explanation for "${inputText}"`,
+          title: "Conversation History",
           language: "plaintext",
         });
-        setFullExplanation(data.detailed);
-        setCurrentExplanation("");
-        setShowCanvas(true);
-        setTimeout(() => setIsTyping(true), 50);
-      }
+        return newContent;
+      });
 
       if (data.mode === "voice_query" && data.audio) {
         console.log("Processing voice response with audio");
@@ -172,6 +165,7 @@ const ChatInterface = ({
         });
       }
       setIsProcessing(false);
+      setShowCanvas(true);
     };
 
     ws.current.onerror = (error) => {
@@ -206,6 +200,15 @@ const ChatInterface = ({
       stopRecognition();
     };
   }, [connectWebSocket]);
+
+  useEffect(() => {
+    setCanvasContent({
+      content: accumulatedContent,
+      contentType: "markdown",
+      title: "Conversation History",
+      language: "plaintext",
+    });
+  }, [accumulatedContent]);
 
   useEffect(() => {
     if ("SpeechRecognition" in window || "webkitSpeechRecognition" in window) {
@@ -507,11 +510,11 @@ const ChatInterface = ({
             { type: "assistant", content: chatResponse },
           ]);
           if (selectedOption !== "learn") {
-            setPreviousContent(canvasContent.content);
-            setFullExplanation(canvasData.content);
-            setCurrentExplanation("");
-            setShowCanvas(true);
-            setTimeout(() => setIsTyping(true), 50);
+            const title = `Explanation of "${inputText}"`;
+            setAccumulatedContent(
+              (prev) =>
+                prev + `\n\n## ${title}\n\n${canvasData.content}\n\n---\n\n`
+            );
           }
         }, 1000);
       } else {
@@ -519,12 +522,7 @@ const ChatInterface = ({
           "WebSocket is not open or no flow match. Falling back to default response."
         );
         const chatResponse = `This is a simulated response about ${category} using the ${selectedOption} approach in ${selectedChat}.`;
-        const canvasData = {
-          content: `\n\nExplanation of ${inputText}`,
-          contentType: "text",
-          title: "Linear Data Structures",
-          language: "plaintext",
-        };
+        const detailed = `\n\nExplanation of ${inputText}`;
 
         setTimeout(() => {
           setMessages((prev) => [
@@ -532,11 +530,10 @@ const ChatInterface = ({
             { type: "assistant", content: chatResponse },
           ]);
           if (selectedOption !== "learn") {
-            setPreviousContent(canvasContent.content);
-            setFullExplanation(canvasData.content);
-            setCurrentExplanation("");
-            setShowCanvas(true);
-            setTimeout(() => setIsTyping(true), 50);
+            const title = `Explanation of "${inputText}"`;
+            setAccumulatedContent(
+              (prev) => prev + `\n\n## ${title}\n\n${detailed}\n\n---\n\n`
+            );
           }
         }, 1000);
       }
@@ -650,23 +647,12 @@ const ChatInterface = ({
 
   const startExplanation = (message) => {
     const explanation = `Here's a simpler explanation of:\n\n"${message}"\n\nThis means the AI assistant is providing a detailed response about ${category}.`;
-
-    setCanvasContent({
-      content: "",
-      contentType: "text",
-      title: `Explanation (${
-        explainMode.charAt(0).toUpperCase() + explainMode.slice(1)
-      } Mode)`,
-    });
-
-    setFullExplanation(explanation);
-    setCurrentExplanation("");
-
+    const title = `Explanation of "${message}"`;
+    setAccumulatedContent(
+      (prev) => prev + `\n\n## ${title}\n\n${explanation}\n\n---\n\n`
+    );
     setShowCanvas(true);
-
-    setTimeout(() => {
-      setIsTyping(true);
-    }, 50);
+    setExplainMode("chat");
   };
 
   useEffect(() => {
@@ -700,13 +686,7 @@ const ChatInterface = ({
   useEffect(() => {
     if (!showCanvas) {
       cleanupMediaResources();
-      setCanvasContent({
-        content: "",
-        contentType: "text",
-        language: "plaintext",
-        title: "Linear Data Structures",
-      });
-      setPreviousContent("");
+      setAccumulatedContent("");
       setCurrentExplanation("");
       setFullExplanation("");
     }
@@ -779,15 +759,6 @@ const ChatInterface = ({
     return () => document.removeEventListener("mouseup", handleTextSelection);
   }, []);
 
-  useEffect(() => {
-    if (currentExplanation !== "") {
-      setCanvasContent((prev) => ({
-        ...prev,
-        content: previousContent + currentExplanation,
-      }));
-    }
-  }, [currentExplanation, previousContent]);
-
   const handleCloseCanvas = () => {
     setShowCanvas(false);
     setIsTyping(false);
@@ -826,15 +797,6 @@ const ChatInterface = ({
           mode: "learn",
         })
       );
-      setCanvasContent({
-        content: "",
-        contentType: "text",
-        title: `Learn With Me: ${category}`,
-        language: "plaintext",
-      });
-      setPreviousContent("");
-      setCurrentExplanation("");
-      setFullExplanation("");
       setShowCanvas(true);
       setExplainMode("chat");
     }
@@ -973,7 +935,10 @@ const ChatInterface = ({
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto py-3 px-3 bg-slate-50" style={{ maxHeight: 'calc(100vh - 120px)' }}>
+          <div
+            className="flex-1 overflow-y-auto py-3 px-3 bg-slate-50"
+            style={{ maxHeight: "calc(100vh - 120px)" }}
+          >
             {messages.map((message, index) => (
               <div
                 key={index}
@@ -1000,11 +965,17 @@ const ChatInterface = ({
                               >
                                 <input
                                   type="checkbox"
-                                  checked={(quizAnswers[index] || []).includes(option)}
-                                  onChange={() => handleCheckboxChange(index, option)}
+                                  checked={(quizAnswers[index] || []).includes(
+                                    option
+                                  )}
+                                  onChange={() =>
+                                    handleCheckboxChange(index, option)
+                                  }
                                   className="form-checkbox text-indigo-600"
                                 />
-                                <span className="text-sm text-slate-700">{option}</span>
+                                <span className="text-sm text-slate-700">
+                                  {option}
+                                </span>
                               </label>
                             ))}
                             <button
@@ -1037,7 +1008,9 @@ const ChatInterface = ({
                         {selectedOption !== "learn" && (
                           <button
                             className="px-1 py-0.5 rounded-full hover:bg-white text-slate-500 flex items-center transition-colors"
-                            onClick={() => handleOpenExplainOptions(message.content)}
+                            onClick={() =>
+                              handleOpenExplainOptions(message.content)
+                            }
                           >
                             <HelpCircle size={12} />
                             <span className="ml-1 text-xs">Explain it Fox</span>
@@ -1046,7 +1019,9 @@ const ChatInterface = ({
                         {selectedOption === "learn" && (
                           <button
                             className="px-1 py-0.5 rounded-full hover:bg-white text-slate-500 flex items-center transition-colors"
-                            onClick={() => handleOpenExplainOptions(message.content)}
+                            onClick={() =>
+                              handleOpenExplainOptions(message.content)
+                            }
                           >
                             <BookmarkPlus size={12} />
                             <span className="ml-1 text-xs">Explain It Fox</span>
@@ -1162,148 +1137,149 @@ const ChatInterface = ({
           </div>
         </div>
 
-{showCanvas && (
-  <div
-    className="w-3/5 flex flex-col relative"
-    style={{ maxHeight: "calc(100vh - 60px)" }} // Parent container height
-  >
-    <div className="sticky top-0 z-10 bg-white p-2 flex justify-between items-center text-black shadow-sm">
-      <h3 className="font-medium flex items-center text-sm">
-        {selectedOption === "learn" ? (
-          <>
-            <span className="mr-1 text-base">📚</span>
-            Learn With Me: {category}
-            {isTyping && (
-              <span className="ml-1 inline-flex">
-                <span className="animate-pulse">.</span>
-                <span className="animate-pulse delay-100">.</span>
-                <span className="animate-pulse delay-200">.</span>
-              </span>
-            )}
-          </>
-        ) : (
-          <>
-            <span className="mr-1 text-base">🦊</span>
-            {canvasContent.title}
-            {isTyping && (
-              <span className="ml-1 inline-flex">
-                <span className="animate-pulse">.</span>
-                <span className="animate-pulse delay-100">.</span>
-                <span className="animate-pulse delay-200">.</span>
-              </span>
-            )}
-            <div className="ml-2 flex gap-1">
+        {showCanvas && (
+          <div
+            className="w-3/5 flex flex-col relative"
+            style={{ maxHeight: "calc(100vh - 60px)" }}
+          >
+            <div className="sticky top-0 z-10 bg-white p-2 flex justify-between items-center text-black shadow-sm">
+              <h3 className="font-medium flex items-center text-sm">
+                {selectedOption === "learn" ? (
+                  <>
+                    <span className="mr-1 text-base">📚</span>
+                    Learn With Me: {category}
+                    {isTyping && (
+                      <span className="ml-1 inline-flex">
+                        <span className="animate-pulse">.</span>
+                        <span className="animate-pulse delay-100">.</span>
+                        <span className="animate-pulse delay-200">.</span>
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="mr-1 text-base">🦊</span>
+                    {canvasContent.title}
+                    {isTyping && (
+                      <span className="ml-1 inline-flex">
+                        <span className="animate-pulse">.</span>
+                        <span className="animate-pulse delay-100">.</span>
+                        <span className="animate-pulse delay-200">.</span>
+                      </span>
+                    )}
+                    <div className="ml-2 flex gap-1">
+                      <button
+                        className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${
+                          explainMode === "chat"
+                            ? "bg-indigo-100 text-indigo-600"
+                            : "text-slate-400"
+                        }`}
+                        onClick={() => handleSelectExplainMode("chat")}
+                        title="Text explanation"
+                      >
+                        <MessageSquare size={12} />
+                      </button>
+                      <button
+                        className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${
+                          explainMode === "audio"
+                            ? "bg-indigo-100 text-indigo-600"
+                            : "text-slate-400"
+                        }`}
+                        onClick={() => handleSelectExplainMode("audio")}
+                        title="Voice explanation"
+                      >
+                        <Mic size={12} />
+                      </button>
+                      <button
+                        className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${
+                          explainMode === "video"
+                            ? "bg-indigo-100 text-indigo-600"
+                            : "text-slate-400"
+                        }`}
+                        onClick={() => handleSelectExplainMode("video")}
+                        title="Video explanation"
+                      >
+                        <Video size={12} />
+                      </button>
+                      {micActive && (
+                        <span className="ml-1 px-1 py-0.5 bg-red-100 text-red-600 rounded-full text-xs flex items-center">
+                          <Mic size={10} className="mr-0.5" /> Mic active
+                        </span>
+                      )}
+                      {cameraActive && (
+                        <span className="ml-1 px-1 py-0.5 bg-red-100 text-red-600 rounded-full text-xs flex items-center">
+                          <Video size={10} className="mr-0.5" /> Camera active
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
+              </h3>
               <button
-                className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${
-                  explainMode === "chat"
-                    ? "bg-indigo-100 text-indigo-600"
-                    : "text-slate-400"
-                }`}
-                onClick={() => handleSelectExplainMode("chat")}
-                title="Text explanation"
+                className="p-1 rounded-full hover:bg-slate-200 transition-colors"
+                onClick={handleCloseCanvas}
               >
-                <MessageSquare size={12} />
+                <X size={14} />
               </button>
-              <button
-                className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${
-                  explainMode === "audio"
-                    ? "bg-indigo-100 text-indigo-600"
-                    : "text-slate-400"
-                }`}
-                onClick={() => handleSelectExplainMode("audio")}
-                title="Voice explanation"
-              >
-                <Mic size={12} />
-              </button>
-              <button
-                className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${
-                  explainMode === "video"
-                    ? "bg-indigo-100 text-indigo-600"
-                    : "text-slate-400"
-                }`}
-                onClick={() => handleSelectExplainMode("video")}
-                title="Video explanation"
-              >
-                <Video size={12} />
-              </button>
-              {micActive && (
-                <span className="ml-1 px-1 py-0.5 bg-red-100 text-red-600 rounded-full text-xs flex items-center">
-                  <Mic size={10} className="mr-0.5" /> Mic active
-                </span>
+            </div>
+
+            <div
+              className="flex-1 overflow-y-auto bg-slate-50 relative"
+              style={{ height: "calc(100% - 32px)" }}
+            >
+              {showAddNoteMenu && (
+                <div
+                  className="add-note-menu absolute bg-white rounded-lg shadow-lg py-1 px-3 z-20 flex items-center border border-indigo-100"
+                  style={{
+                    top: `${noteMenuPosition.top}px`,
+                    left: `${noteMenuPosition.left}px`,
+                  }}
+                >
+                  <button
+                    className="flex items-center gap-1 text-indigo-600 text-xs font-medium hover:text-indigo-800 transition-colors"
+                    onClick={handleAddNote}
+                  >
+                    <BookmarkPlus size={12} />
+                    Add note
+                  </button>
+                </div>
               )}
               {cameraActive && (
-                <span className="ml-1 px-1 py-0.5 bg-red-100 text-red-600 rounded-full text-xs flex items-center">
-                  <Video size={10} className="mr-0.5" /> Camera active
-                </span>
+                <div className="absolute bottom-6 right-6 z-10 transition-all duration-300 ease-in-out">
+                  <div className="group relative">
+                    <div className="w-28 h-28 rounded-xl overflow-hidden shadow-lg bg-gray-900 ring-2 ring-indigo-500 ring-opacity-70 transition-all duration-300 hover:ring-opacity-100">
+                      <video
+                        ref={videoRef}
+                        className="w-full h-full object-cover"
+                        autoPlay
+                        playsInline
+                        muted
+                      />
+                    </div>
+                    <div className="absolute -top-1 -right-1 bg-red-500 p-1 rounded-full shadow-md flex items-center justify-center">
+                      <Camera size={12} className="text-white" />
+                    </div>
+                    <div className="absolute -bottom-1 inset-x-0 bg-indigo-600 py-0.5 px-2 text-white text-xs font-medium text-center rounded-b-xl opacity-90">
+                      You
+                    </div>
+                  </div>
+                </div>
               )}
-            </div>
-          </>
-        )}
-      </h3>
-      <button
-        className="p-1 rounded-full hover:bg-slate-200 transition-colors"
-        onClick={handleCloseCanvas}
-      >
-        <X size={14} />
-      </button>
-    </div>
-
-    <div
-      className="flex-1 overflow-y-auto bg-slate-50 relative" // Single scrollbar here
-      style={{ height: "calc(100% - 32px)" }} // Subtract header height
-    >
-      {showAddNoteMenu && (
-        <div
-          className="add-note-menu absolute bg-white rounded-lg shadow-lg py-1 px-3 z-20 flex items-center border border-indigo-100"
-          style={{
-            top: `${noteMenuPosition.top}px`,
-            left: `${noteMenuPosition.left}px`,
-          }}
-        >
-          <button
-            className="flex items-center gap-1 text-indigo-600 text-xs font-medium hover:text-indigo-800 transition-colors"
-            onClick={handleAddNote}
-          >
-            <BookmarkPlus size={12} />
-            Add note
-          </button>
-        </div>
-      )}
-      {cameraActive && (
-        <div className="absolute bottom-6 right-6 z-10 transition-all duration-300 ease-in-out">
-          <div className="group relative">
-            <div className="w-28 h-28 rounded-xl overflow-hidden shadow-lg bg-gray-900 ring-2 ring-indigo-500 ring-opacity-70 transition-all duration-300 hover:ring-opacity-100">
-              <video
-                ref={videoRef}
-                className="w-full h-full object-cover"
-                autoPlay
-                playsInline
-                muted
-              />
-            </div>
-            <div className="absolute -top-1 -right-1 bg-red-500 p-1 rounded-full shadow-md flex items-center justify-center">
-              <Camera size={12} className="text-white" />
-            </div>
-            <div className="absolute -bottom-1 inset-x-0 bg-indigo-600 py-0.5 px-2 text-white text-xs font-medium text-center rounded-b-xl opacity-90">
-              You
+              <div
+                className="bg-white rounded-lg p-3 shadow-sm w-full"
+                ref={canvasRef}
+              >
+                <CanvasArea
+                  content={canvasContent.content}
+                  contentType={canvasContent.contentType}
+                  language={canvasContent.language}
+                  title={canvasContent.title}
+                />
+              </div>
             </div>
           </div>
-        </div>
-      )}
-      <div
-        className="bg-white rounded-lg p-3 shadow-sm w-full"
-        ref={canvasRef}
-      >
-        <CanvasArea
-          content={canvasContent.content}
-          contentType={canvasContent.contentType}
-          language={canvasContent.language}
-          title={canvasContent.title}
-        />
+        )}
       </div>
-    </div>
-  </div>
-)}      </div>
     </div>
   );
 };

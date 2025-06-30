@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Copy,
   Download,
@@ -29,9 +29,9 @@ import mermaid from "mermaid";
 
 const CanvasArea = ({
   content,
-  contentType = "code",
-  language = "javascript",
-  title = "Content Display",
+  contentType = "markdown",
+  language = "plaintext",
+  title = "Conversation History",
   onSwitchToBook,
 }) => {
   const [copied, setCopied] = useState(false);
@@ -68,32 +68,24 @@ const CanvasArea = ({
         currentLanguage
       );
     }
-  }, [viewMode, onSwitchToBook, currentContent, currentTitle, currentContentType, currentLanguage]);
+  }, [
+    viewMode,
+    onSwitchToBook,
+    currentContent,
+    currentTitle,
+    currentContentType,
+    currentLanguage,
+  ]);
 
   useEffect(() => {
-    if (
-      content !== currentContent ||
-      contentType !== currentContentType ||
-      language !== currentLanguage ||
-      title !== currentTitle
-    ) {
-      setCurrentContent(content);
-      setCurrentContentType(contentType);
-      setCurrentLanguage(language);
-      setCurrentTitle(title);
-      const newHistoryItem = { content, contentType, language, title };
-      setHistory([...history.slice(0, historyIndex + 1), newHistoryItem]);
-      setHistoryIndex(historyIndex + 1);
-      setSelectedAnswer(null);
-      setQuizFeedback("");
-      setQuizAnswers({});
-      setQuizSubmitted(false);
-      if (contentRef.current) {
-        contentRef.current.scrollTop = 0;
-      }
+    setCurrentContent(content);
+    setCurrentContentType(contentType);
+    setCurrentLanguage(language);
+    setCurrentTitle(title);
+    if (contentRef.current) {
+      contentRef.current.scrollTop = contentRef.current.scrollHeight;
     }
-  }, [content, contentType, language, title, history, historyIndex]);
-
+  }, [content, contentType, language, title]);
   useEffect(() => {
     if (currentContentType === "code" && viewMode === "canvas") {
       Prism.highlightAll();
@@ -218,7 +210,7 @@ const CanvasArea = ({
         return "JavaScript";
       case "jsx":
         return "React JSX";
-        case "python":
+      case "python":
         return "Python";
       case "java":
         return "Java";
@@ -227,7 +219,7 @@ const CanvasArea = ({
       case "css":
         return "CSS";
       case "json":
-        return "JSO";
+        return "JSON";
       default:
         return (
           currentLanguage.charAt(0).toUpperCase() + currentLanguage.slice(1)
@@ -342,19 +334,23 @@ const CanvasArea = ({
 
   const Mermaid = ({ code }) => {
     const [svg, setSvg] = useState(null);
+    const id = useMemo(
+      () => `mermaid-${Math.random().toString(36).substr(2, 9)}`,
+      []
+    );
 
     useEffect(() => {
       const renderMermaid = async () => {
         try {
-          const { svg } = await mermaid.render("mermaid-temp", code);
+          const { svg } = await mermaid.render(id, code);
           setSvg(svg);
         } catch (error) {
           console.error("Mermaid rendering error:", error);
-          setSvg("<p>Error rendering diagram</p>");
+          setSvg(`<p>Error rendering diagram: ${error.message}</p>`);
         }
       };
       renderMermaid();
-    }, [code]);
+    }, [code, id]);
 
     return (
       <div className="mermaid" dangerouslySetInnerHTML={{ __html: svg }} />
@@ -405,7 +401,9 @@ const CanvasArea = ({
                     disabled={quizSubmitted}
                     className="mr-2 align-middle"
                   />
-                  <span className="text-sm text-slate-700 align-middle">{option}</span>
+                  <span className="text-sm text-slate-700 align-middle">
+                    {option}
+                  </span>
                 </label>
               ))}
               {quizSubmitted && (
@@ -461,9 +459,7 @@ const CanvasArea = ({
                 code({ node, inline, className, children, ...props }) {
                   const match = /language-(\w+)/.exec(className || "");
                   if (!inline && match && match[1] === "mermaid") {
-                    return (
-                      <Mermaid code={String(children).replace(/\n$/, "")} />
-                    );
+                    return <Mermaid code={String(children).trim()} />;
                   }
                   return (
                     <code className={className} {...props}>
@@ -634,7 +630,8 @@ const CanvasArea = ({
                       name={`question-${index}`}
                       value={String.fromCharCode(65 + optIndex)}
                       checked={
-                        quizAnswers[index] === String.fromCharCode(65 + optIndex)
+                        quizAnswers[index] ===
+                        String.fromCharCode(65 + optIndex)
                       }
                       onChange={() =>
                         handleQuizAnswerChange(
@@ -645,7 +642,9 @@ const CanvasArea = ({
                       disabled={quizSubmitted}
                       className="mr-2 align-middle"
                     />
-                    <span className="text-sm text-slate-700 align-middle">{option}</span>
+                    <span className="text-sm text-slate-700 align-middle">
+                      {option}
+                    </span>
                   </label>
                 ))}
                 {quizSubmitted && (
@@ -656,8 +655,8 @@ const CanvasArea = ({
                         : "text-red-600"
                     }`}
                   >
-                    {quizAnswers[index] === q.correct ? "Correct" : "Incorrect"}.{" "}
-                    {q.explanation}
+                    {quizAnswers[index] === q.correct ? "Correct" : "Incorrect"}
+                    . {q.explanation}
                   </p>
                 )}
               </div>
@@ -749,9 +748,7 @@ const CanvasArea = ({
                 code({ node, inline, className, children, ...props }) {
                   const match = /language-(\w+)/.exec(className || "");
                   if (!inline && match && match[1] === "mermaid") {
-                    return (
-                      <Mermaid code={String(children).replace(/\n$/, "")} />
-                    );
+                    return <Mermaid code={String(children).trim()} />;
                   }
                   if (!inline && match) {
                     const lang = match[1];
@@ -788,11 +785,7 @@ const CanvasArea = ({
           </div>
         );
       default:
-        return (
-          <div className="p-6 whitespace-pre-wrap">
-            {currentContent}
-          </div>
-        );
+        return <div className="p-6 whitespace-pre-wrap">{currentContent}</div>;
     }
   };
 
