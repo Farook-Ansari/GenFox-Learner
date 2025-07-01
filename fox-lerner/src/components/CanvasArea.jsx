@@ -12,6 +12,7 @@ import {
   Share2,
   BookMarked,
   Layout,
+  Play as PlayIcon,
 } from "lucide-react";
 import Prism from "prismjs";
 import "prismjs/themes/prism-tomorrow.css";
@@ -31,17 +32,16 @@ const CanvasArea = ({
   content,
   contentType = "markdown",
   language = "plaintext",
-  title = "Conversation History",
+  title = "Canvas Area",
   onSwitchToBook,
+  isNewMessage = false,
 }) => {
   const [copied, setCopied] = useState(false);
   const [currentContent, setCurrentContent] = useState(content);
   const [currentContentType, setCurrentContentType] = useState(contentType);
   const [currentLanguage, setCurrentLanguage] = useState(language);
   const [currentTitle, setCurrentTitle] = useState(title);
-  const [history, setHistory] = useState([
-    { content, contentType, language, title },
-  ]);
+  const [history, setHistory] = useState([{ content, contentType, language, title }]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
   const [showTooltip, setShowTooltip] = useState("");
@@ -52,6 +52,8 @@ const CanvasArea = ({
   const [quizFeedback, setQuizFeedback] = useState("");
   const [quizAnswers, setQuizAnswers] = useState({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
+  const [codeContents, setCodeContents] = useState({});
+  const [codeOutputs, setCodeOutputs] = useState({});
   const contentRef = useRef(null);
   const bookCodeRef = useRef(null);
 
@@ -61,31 +63,20 @@ const CanvasArea = ({
 
   useEffect(() => {
     if (onSwitchToBook && viewMode === "book") {
-      onSwitchToBook(
-        currentContent,
-        currentTitle,
-        currentContentType,
-        currentLanguage
-      );
+      onSwitchToBook(currentContent, currentTitle, currentContentType, currentLanguage);
     }
-  }, [
-    viewMode,
-    onSwitchToBook,
-    currentContent,
-    currentTitle,
-    currentContentType,
-    currentLanguage,
-  ]);
+  }, [viewMode, onSwitchToBook, currentContent, currentTitle, currentContentType, currentLanguage]);
 
   useEffect(() => {
     setCurrentContent(content);
     setCurrentContentType(contentType);
     setCurrentLanguage(language);
     setCurrentTitle(title);
-    if (contentRef.current) {
-      contentRef.current.scrollTop = contentRef.current.scrollHeight;
+    if (contentRef.current && isNewMessage) {
+      contentRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
     }
-  }, [content, contentType, language, title]);
+  }, [content, contentType, language, title, isNewMessage]);
+
   useEffect(() => {
     if (currentContentType === "code" && viewMode === "canvas") {
       Prism.highlightAll();
@@ -106,9 +97,7 @@ const CanvasArea = ({
 
   const downloadContent = () => {
     const fileExtension = getFileExtension(currentContentType, currentLanguage);
-    const fileName = `${currentTitle
-      .toLowerCase()
-      .replace(/\s+/g, "-")}.${fileExtension}`;
+    const fileName = `${currentTitle.toLowerCase().replace(/\s+/g, "-")}.${fileExtension}`;
     const element = document.createElement("a");
     const file = new Blob([currentContent], { type: "text/plain" });
     element.href = URL.createObjectURL(file);
@@ -153,29 +142,24 @@ const CanvasArea = ({
       setHistoryIndex(newIndex);
       setSelectedAnswer(null);
       setQuizFeedback("");
-      if (contentRef.current) {
-        contentRef.current.scrollTop = 0;
-      }
+      if (contentRef.current) contentRef.current.scrollTop = 0;
     }
   };
 
-  const goForward = () => {
-    if (historyIndex < history.length - 1) {
-      const newIndex = historyIndex + 1;
-      const nextItem = history[newIndex];
-      setCurrentContent(nextItem.content);
-      setCurrentContentType(nextItem.contentType);
-      setCurrentLanguage(nextItem.language);
-      setCurrentTitle(nextItem.title);
-      setHistoryIndex(newIndex);
-      setSelectedAnswer(null);
-      setQuizFeedback("");
-      if (contentRef.current) {
-        contentRef.current.scrollTop = 0;
-      }
-    }
-  };
-
+const goForward = () => {
+  if (historyIndex < history.length - 1) {
+    const newIndex = historyIndex + 1;
+    const nextItem = history[newIndex];
+    setCurrentContent(nextItem.content);
+    setCurrentContentType(nextItem.contentType);
+    setCurrentLanguage(nextItem.language);
+    setCurrentTitle(nextItem.title);
+    setHistoryIndex(newIndex);
+    setSelectedAnswer(null);
+    setQuizFeedback("");
+    if (contentRef.current) contentRef.current.scrollTop = 0;
+  }
+};
   const toggleFullscreen = () => {
     setFullscreen(!fullscreen);
   };
@@ -185,16 +169,9 @@ const CanvasArea = ({
     setTimeout(() => {
       const newMode = viewMode === "canvas" ? "book" : "canvas";
       setViewMode(newMode);
-      if (newMode === "canvas") {
-        setHasActivatedCanvasView(true);
-      }
+      if (newMode === "canvas") setHasActivatedCanvasView(true);
       if (onSwitchToBook && newMode === "book") {
-        onSwitchToBook(
-          currentContent,
-          currentTitle,
-          currentContentType,
-          currentLanguage
-        );
+        onSwitchToBook(currentContent, currentTitle, currentContentType, currentLanguage);
       }
       setPageFlipAnimation(false);
     }, 300);
@@ -221,9 +198,7 @@ const CanvasArea = ({
       case "json":
         return "JSON";
       default:
-        return (
-          currentLanguage.charAt(0).toUpperCase() + currentLanguage.slice(1)
-        );
+        return currentLanguage.charAt(0).toUpperCase() + currentLanguage.slice(1);
     }
   };
 
@@ -250,23 +225,15 @@ const CanvasArea = ({
     let currentSection = "";
 
     lines.forEach((line) => {
-      if (line.startsWith("Quiz")) {
-        currentSection = "quiz";
-      } else if (line.startsWith("Misconception")) {
-        currentSection = "misconception";
-      } else if (line.startsWith("Related Concepts")) {
-        currentSection = "relatedConcepts";
-      } else if (currentSection === "quiz") {
-        if (line.trim() && !quiz.question) {
-          quiz.question = line.trim();
-        } else if (line.startsWith("- ") && line.trim().length > 2) {
+      if (line.startsWith("Quiz")) currentSection = "quiz";
+      else if (line.startsWith("Misconception")) currentSection = "misconception";
+      else if (line.startsWith("Related Concepts")) currentSection = "relatedConcepts";
+      else if (currentSection === "quiz") {
+        if (line.trim() && !quiz.question) quiz.question = line.trim();
+        else if (line.startsWith("- ") && line.trim().length > 2)
           quiz.options.push(line.replace("- ", "").trim());
-        }
-      } else if (currentSection === "misconception") {
-        misconception += line + "\n";
-      } else if (currentSection === "relatedConcepts") {
-        relatedConcepts += line + "\n";
-      }
+      } else if (currentSection === "misconception") misconception += line + "\n";
+      else if (currentSection === "relatedConcepts") relatedConcepts += line + "\n";
     });
 
     return { quiz, misconception, relatedConcepts };
@@ -285,15 +252,10 @@ const CanvasArea = ({
 
     return (
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-slate-800 mb-2">
-          {quiz.question}
-        </h3>
+        <h3 className="text-lg font-semibold text-slate-800 mb-2">{quiz.question}</h3>
         <div className="space-y-2">
           {quiz.options.map((option, index) => (
-            <label
-              key={index}
-              className="flex items-center space-x-2 cursor-pointer"
-            >
+            <label key={index} className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="radio"
                 name="quiz"
@@ -309,9 +271,7 @@ const CanvasArea = ({
         {quizFeedback && (
           <p
             className={`mt-2 text-sm ${
-              quizFeedback.includes("Correct")
-                ? "text-green-600"
-                : "text-red-600"
+              quizFeedback.includes("Correct") ? "text-green-600" : "text-red-600"
             }`}
           >
             {quizFeedback}
@@ -322,43 +282,83 @@ const CanvasArea = ({
   };
 
   const handleQuizAnswerChange = (questionIndex, option) => {
-    setQuizAnswers((prev) => ({
-      ...prev,
-      [questionIndex]: option,
-    }));
+    setQuizAnswers((prev) => ({ ...prev, [questionIndex]: option }));
   };
 
   const handleQuizSubmit = () => {
     setQuizSubmitted(true);
   };
 
-  const Mermaid = React.memo(
-    ({ code }) => {
-      const [svg, setSvg] = useState(null);
-      const id = useMemo(
-        () => `mermaid-${Math.random().toString(36).substr(2, 9)}`,
-        []
-      );
+  const Mermaid = ({ code }) => {
+    const [svg, setSvg] = useState(null);
+    const id = useMemo(
+      () => `mermaid-${Math.random().toString(36).substr(2, 9)}`,
+      []
+    );
 
-      useEffect(() => {
-        const renderMermaid = async () => {
-          try {
-            const { svg } = await mermaid.render(id, code);
-            setSvg(svg);
-          } catch (error) {
-            console.error("Mermaid rendering error:", error);
-            setSvg(`<p>Error rendering diagram: ${error.message}</p>`);
-          }
-        };
-        renderMermaid();
-      }, [code, id]);
+    useEffect(() => {
+      const renderMermaid = async () => {
+        try {
+          const { svg } = await mermaid.render(id, code);
+          setSvg(svg);
+        } catch (error) {
+          console.error("Mermaid rendering error:", error);
+          setSvg(`<p>Error rendering diagram: ${error.message}</p>`);
+        }
+      };
+      renderMermaid();
+    }, [code, id]);
 
-      return (
-        <div className="mermaid" dangerouslySetInnerHTML={{ __html: svg }} />
-      );
-    },
-    (prevProps, nextProps) => prevProps.code === nextProps.code
-  );
+    return <div className="mermaid max-w-full overflow-x-auto" dangerouslySetInnerHTML={{ __html: svg }} />;
+  };
+
+  const renderInlineCode = (code, blockId) => {
+    const currentCode = codeContents[blockId] !== undefined ? codeContents[blockId] : code;
+    return (
+      <div className="my-4 bg-gray-100 rounded-lg overflow-hidden shadow-inner">
+        <div className="flex items-center justify-between px-4 py-2 bg-gray-200 text-gray-700 text-sm font-mono border-b border-gray-300">
+          <span>JavaScript Code</span>
+          <button
+            onClick={() => runCode(currentCode, blockId)}
+            className="flex items-center gap-1 px-3 py-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-all"
+          >
+            <PlayIcon size={14} />
+            Run
+          </button>
+        </div>
+        <textarea
+          value={currentCode}
+          onChange={(e) => setCodeContents((prev) => ({ ...prev, [blockId]: e.target.value }))}
+          className="w-full min-h-[200px] p-4 font-mono text-sm text-gray-800 bg-white overflow-y-auto resize-y"
+          spellCheck="false"
+          placeholder="// Write your JavaScript code here"
+        />
+        {codeOutputs[blockId] && (
+          <div className="bg-gray-50 p-4">
+            <h4 className="text-sm font-semibold text-slate-800 mb-2">Output</h4>
+            <pre className="text-sm text-green-700 whitespace-pre-wrap">
+              {codeOutputs[blockId]}
+            </pre>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const runCode = (code, blockId) => {
+    console.log("Executing code:", code, "for blockId:", blockId);
+    try {
+      const output = [];
+      const originalConsoleLog = console.log;
+      console.log = (...args) => output.push(args.join(" "));
+      eval(code); // Simple execution for testing
+      console.log = originalConsoleLog;
+      setCodeOutputs((prev) => ({ ...prev, [blockId]: output.join("\n") || "No output" }));
+    } catch (error) {
+      console.error("Code execution error:", error);
+      setCodeOutputs((prev) => ({ ...prev, [blockId]: `Error: ${error.message}` }));
+    }
+  };
 
   const renderBookContent = () => {
     const getPageBackground = () => {
@@ -381,7 +381,7 @@ const CanvasArea = ({
     if (currentContentType === "quiz") {
       const quizQuestions = JSON.parse(currentContent);
       return (
-        <div className="p-6">
+        <div className="p-4 sm:p-6 overflow-y-auto max-w-full">
           <h3 className="text-lg font-medium mb-4">{currentTitle}</h3>
           {quizQuestions.map((q, index) => (
             <div key={index} className="mb-6">
@@ -392,33 +392,21 @@ const CanvasArea = ({
                     type="radio"
                     name={`question-${index}`}
                     value={String.fromCharCode(65 + optIndex)}
-                    checked={
-                      quizAnswers[index] === String.fromCharCode(65 + optIndex)
-                    }
-                    onChange={() =>
-                      handleQuizAnswerChange(
-                        index,
-                        String.fromCharCode(65 + optIndex)
-                      )
-                    }
+                    checked={quizAnswers[index] === String.fromCharCode(65 + optIndex)}
+                    onChange={() => handleQuizAnswerChange(index, String.fromCharCode(65 + optIndex))}
                     disabled={quizSubmitted}
                     className="mr-2 align-middle"
                   />
-                  <span className="text-sm text-slate-700 align-middle">
-                    {option}
-                  </span>
+                  <span className="text-sm text-slate-700 align-middle">{option}</span>
                 </label>
               ))}
               {quizSubmitted && (
                 <p
                   className={`text-sm mt-2 pl-2 ${
-                    quizAnswers[index] === q.correct
-                      ? "text-green-600"
-                      : "text-red-600"
+                    quizAnswers[index] === q.correct ? "text-green-600" : "text-red-600"
                   }`}
                 >
-                  {quizAnswers[index] === q.correct ? "Correct" : "Incorrect"}.{" "}
-                  {q.explanation}
+                  {quizAnswers[index] === q.correct ? "Correct" : "Incorrect"}. {q.explanation}
                 </p>
               )}
             </div>
@@ -447,7 +435,7 @@ const CanvasArea = ({
               </div>
               <div className="flex-1 text-center">{getLanguageLabel()}</div>
             </div>
-            <pre className="p-4 text-sm bg-white">
+            <pre className="p-4 text-sm bg-white overflow-y-auto max-w-full">
               <code ref={bookCodeRef} className="font-mono text-gray-800">
                 {currentContent}
               </code>
@@ -456,13 +444,28 @@ const CanvasArea = ({
         );
       } else if (currentContentType === "markdown") {
         return (
-          <div className="prose prose-indigo max-w-none">
+          <div className="prose prose-indigo max-w-none overflow-y-auto">
             <ReactMarkdown
               components={{
                 code({ node, inline, className, children, ...props }) {
                   const match = /language-(\w+)/.exec(className || "");
                   if (!inline && match && match[1] === "mermaid") {
                     return <Mermaid code={String(children).trim()} />;
+                  }
+                  if (!inline && match && match[1] === "javascript") {
+                    const code = String(children).replace(/\n$/, "");
+                    const blockId = `${node.position.start.line}-${node.position.end.line}`;
+                    return renderInlineCode(code, blockId);
+                  }
+                  if (!inline && match) {
+                    const lang = match[1];
+                    return (
+                      <pre className={`language-${lang} my-4 rounded-lg overflow-x-auto`}>
+                        <code className={`language-${lang}`}>
+                          {String(children).replace(/\n$/, "")}
+                        </code>
+                      </pre>
+                    );
                   }
                   return (
                     <code className={className} {...props}>
@@ -482,21 +485,19 @@ const CanvasArea = ({
             <img
               src={currentContent}
               alt="Content"
-              className="max-w-full rounded-lg shadow-lg"
+              className="max-w-full max-h-[80vh] rounded-lg shadow-lg object-contain"
             />
           </div>
         );
       } else {
         const { quiz, misconception, relatedConcepts } = parseContent();
         return (
-          <div className="space-y-6">
+          <div className="space-y-6 overflow-y-auto max-w-full">
             {currentContent.split("\n\n").map((section, index) => {
               if (section.startsWith("Quiz")) {
                 return (
                   <div key={index}>
-                    <h2 className="text-xl font-semibold text-slate-800 mb-4">
-                      Quiz
-                    </h2>
+                    <h2 className="text-xl font-semibold text-slate-800 mb-4">Quiz</h2>
                     {renderQuiz(quiz)}
                   </div>
                 );
@@ -504,9 +505,7 @@ const CanvasArea = ({
                 return (
                   <div key={index}>
                     <hr className="border-t border-slate-200 my-6" />
-                    <h2 className="text-xl font-semibold text-slate-800 mb-4">
-                      Misconception
-                    </h2>
+                    <h2 className="text-xl font-semibold text-slate-800 mb-4">Misconception</h2>
                     <div className="whitespace-pre-wrap font-serif text-gray-800 leading-relaxed">
                       {misconception}
                     </div>
@@ -516,9 +515,7 @@ const CanvasArea = ({
                 return (
                   <div key={index}>
                     <hr className="border-t border-slate-200 my-6" />
-                    <h2 className="text-xl font-semibold text-slate-800 mb-4">
-                      Related Concepts
-                    </h2>
+                    <h2 className="text-xl font-semibold text-slate-800 mb-4">Related Concepts</h2>
                     <div className="whitespace-pre-wrap font-serif text-gray-800 leading-relaxed">
                       {relatedConcepts}
                     </div>
@@ -542,13 +539,13 @@ const CanvasArea = ({
     };
 
     return (
-      <div className={`w-full h-full ${getPageBackground()} flex flex-col`}>
-        <div className="sticky top-0 z-10 p-6 pb-0 bg-white bg-opacity-95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
-          <div className="mb-6 flex justify-between items-center">
-            <h1 className="text-xl font-serif text-gray-800 font-medium">
+      <div className={`w-full h-full ${getPageBackground()} flex flex-col min-h-screen`}>
+        <div className="sticky top-0 z-10 p-4 sm:p-6 pb-0 bg-white bg-opacity-95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
+          <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+            <h1 className="text-lg sm:text-xl font-serif text-gray-800 font-medium truncate">
               {currentTitle}
             </h1>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 mt-2 sm:mt-0">
               <button
                 onClick={copyToClipboard}
                 className="p-2 rounded-full bg-white shadow-sm hover:bg-gray-50 text-gray-700 transition-all"
@@ -580,7 +577,7 @@ const CanvasArea = ({
             </div>
           </div>
         </div>
-        <div className="flex-1 p-6 pt-4" ref={contentRef}>
+        <div className="flex-1 p-4 sm:p-6 pt-4 overflow-y-auto max-w-full" ref={contentRef}>
           <div className="w-full">{formatCodeForBook()}</div>
         </div>
         <div className="sticky bottom-0 p-4 border-t border-gray-200 bg-white bg-opacity-90 backdrop-blur-sm flex justify-between items-center text-xs text-gray-500 shadow-inner">
@@ -589,9 +586,7 @@ const CanvasArea = ({
               onClick={goBack}
               disabled={historyIndex === 0}
               className={`flex items-center gap-1 px-2 py-1 rounded ${
-                historyIndex === 0
-                  ? "opacity-50 cursor-not-allowed"
-                  : "hover:bg-gray-100"
+                historyIndex === 0 ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100"
               }`}
             >
               <ChevronLeft size={14} />
@@ -621,7 +616,7 @@ const CanvasArea = ({
       case "quiz":
         const quizQuestions = JSON.parse(currentContent);
         return (
-          <div className="p-6">
+          <div className="p-4 sm:p-6 overflow-y-auto max-w-full">
             <h3 className="text-lg font-medium mb-4">{currentTitle}</h3>
             {quizQuestions.map((q, index) => (
               <div key={index} className="mb-6">
@@ -632,34 +627,21 @@ const CanvasArea = ({
                       type="radio"
                       name={`question-${index}`}
                       value={String.fromCharCode(65 + optIndex)}
-                      checked={
-                        quizAnswers[index] ===
-                        String.fromCharCode(65 + optIndex)
-                      }
-                      onChange={() =>
-                        handleQuizAnswerChange(
-                          index,
-                          String.fromCharCode(65 + optIndex)
-                        )
-                      }
+                      checked={quizAnswers[index] === String.fromCharCode(65 + optIndex)}
+                      onChange={() => handleQuizAnswerChange(index, String.fromCharCode(65 + optIndex))}
                       disabled={quizSubmitted}
                       className="mr-2 align-middle"
                     />
-                    <span className="text-sm text-slate-700 align-middle">
-                      {option}
-                    </span>
+                    <span className="text-sm text-slate-700 align-middle">{option}</span>
                   </label>
                 ))}
                 {quizSubmitted && (
                   <p
                     className={`text-sm mt-2 pl-2 ${
-                      quizAnswers[index] === q.correct
-                        ? "text-green-600"
-                        : "text-red-600"
+                      quizAnswers[index] === q.correct ? "text-green-600" : "text-red-600"
                     }`}
                   >
-                    {quizAnswers[index] === q.correct ? "Correct" : "Incorrect"}
-                    . {q.explanation}
+                    {quizAnswers[index] === q.correct ? "Correct" : "Incorrect"}. {q.explanation}
                   </p>
                 )}
               </div>
@@ -676,32 +658,24 @@ const CanvasArea = ({
         );
       case "code":
         return (
-          <div className="relative">
+          <div className="relative p-4 sm:p-6 overflow-y-auto max-w-full">
             {currentLanguage && (
               <div className="absolute top-4 right-4 bg-opacity-80 backdrop-blur-sm bg-gray-800 text-gray-200 px-3 py-1 rounded-full text-xs font-mono shadow-md z-10">
                 {getLanguageLabel()}
               </div>
             )}
-            <pre
-              className={`language-${currentLanguage} line-numbers m-0 rounded-none bg-gray-900 p-6`}
-            >
-              <code className={`language-${currentLanguage}`}>
-                {currentContent}
-              </code>
-            </pre>
+            {renderInlineCode(currentContent, "single-code-block")}
           </div>
         );
       case "text":
         const { quiz, misconception, relatedConcepts } = parseContent();
         return (
-          <div className="p-6 whitespace-pre-wrap text-slate-700 bg-white rounded-none space-y-6">
+          <div className="p-4 sm:p-6 whitespace-pre-wrap text-slate-700 bg-white rounded-none space-y-6 overflow-y-auto max-w-full">
             {currentContent.split("\n\n").map((section, index) => {
               if (section.startsWith("Quiz")) {
                 return (
                   <div key={index}>
-                    <h2 className="text-xl font-semibold text-slate-800 mb-4">
-                      Quiz
-                    </h2>
+                    <h2 className="text-xl font-semibold text-slate-800 mb-4">Quiz</h2>
                     {renderQuiz(quiz)}
                   </div>
                 );
@@ -709,9 +683,7 @@ const CanvasArea = ({
                 return (
                   <div key={index}>
                     <hr className="border-t border-slate-200 my-6" />
-                    <h2 className="text-xl font-semibold text-slate-800 mb-4">
-                      Misconception
-                    </h2>
+                    <h2 className="text-xl font-semibold text-slate-800 mb-4">Misconception</h2>
                     <div className="whitespace-pre-wrap text-slate-700">
                       {misconception}
                     </div>
@@ -721,9 +693,7 @@ const CanvasArea = ({
                 return (
                   <div key={index}>
                     <hr className="border-t border-slate-200 my-6" />
-                    <h2 className="text-xl font-semibold text-slate-800 mb-4">
-                      Related Concepts
-                    </h2>
+                    <h2 className="text-xl font-semibold text-slate-800 mb-4">Related Concepts</h2>
                     <div className="whitespace-pre-wrap text-slate-700">
                       {relatedConcepts}
                     </div>
@@ -731,10 +701,7 @@ const CanvasArea = ({
                 );
               } else {
                 return (
-                  <div
-                    key={index}
-                    className="whitespace-pre-wrap text-slate-700"
-                  >
+                  <div key={index} className="whitespace-pre-wrap text-slate-700">
                     {section}
                     <hr className="border-t border-slate-200 my-6" />
                   </div>
@@ -745,7 +712,7 @@ const CanvasArea = ({
         );
       case "markdown":
         return (
-          <div className="p-6 prose prose-slate max-w-none bg-white rounded-none prose-headings:font-semibold prose-headings:text-slate-800 prose-strong:text-slate-900 prose-ul:list-disc prose-ul:pl-6 prose-li:my-1">
+          <div className="p-4 sm:p-6 prose prose-slate max-w-none bg-white rounded-none prose-headings:font-semibold prose-headings:text-slate-800 prose-strong:text-slate-900 prose-ul:list-disc prose-ul:pl-6 prose-li:my-1 overflow-y-auto">
             <ReactMarkdown
               components={{
                 code({ node, inline, className, children, ...props }) {
@@ -753,12 +720,15 @@ const CanvasArea = ({
                   if (!inline && match && match[1] === "mermaid") {
                     return <Mermaid code={String(children).trim()} />;
                   }
+                  if (!inline && match && match[1] === "javascript") {
+                    const code = String(children).replace(/\n$/, "");
+                    const blockId = `${node.position.start.line}-${node.position.end.line}`;
+                    return renderInlineCode(code, blockId);
+                  }
                   if (!inline && match) {
                     const lang = match[1];
                     return (
-                      <pre
-                        className={`language-${lang} my-4 rounded-lg overflow-x-auto`}
-                      >
+                      <pre className={`language-${lang} my-4 rounded-lg overflow-x-auto`}>
                         <code className={`language-${lang}`}>
                           {String(children).replace(/\n$/, "")}
                         </code>
@@ -779,16 +749,16 @@ const CanvasArea = ({
         );
       case "image":
         return (
-          <div className="flex items-center justify-center bg-slate-50 p-6 rounded-none">
+          <div className="flex items-center justify-center bg-slate-50 p-4 sm:p-6 rounded-none overflow-y-auto">
             <img
               src={currentContent}
               alt="Content"
-              className="max-w-full max-h-[80%] shadow-lg rounded-xl"
+              className="max-w-full max-h-[80vh] shadow-lg rounded-xl object-contain"
             />
           </div>
         );
       default:
-        return <div className="p-6 whitespace-pre-wrap">{currentContent}</div>;
+        return <div className="p-4 sm:p-6 whitespace-pre-wrap overflow-y-auto max-w-full">{currentContent}</div>;
     }
   };
 
@@ -798,9 +768,9 @@ const CanvasArea = ({
 
   if (viewMode === "book") {
     return (
-      <div className={`${fullscreen ? "fixed inset-0 z-50" : "h-full"}`}>
+      <div className={`${fullscreen ? "fixed inset-0 z-50" : "h-full min-h-screen"}`}>
         <div
-          className={`w-full h-full bg-white rounded-xl shadow-lg overflow-hidden ${animationClass} transition-all duration-300`}
+          className={`w-full h-full bg-white rounded-xl shadow-lg overflow-hidden ${animationClass} transition-all duration-300 max-w-full`}
         >
           <div className="w-full h-full flex flex-col">
             <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-indigo-600 to-indigo-400 rounded-l-xl"></div>
@@ -822,29 +792,29 @@ const CanvasArea = ({
 
   const containerStyles = fullscreen
     ? "fixed inset-0 z-50 flex flex-col"
-    : "flex flex-col h-full";
+    : "flex flex-col h-full min-h-screen";
 
   return (
     <div
       className={`${containerStyles} ${
         isDarkMode ? "bg-gray-900" : "bg-white"
-      } transition-all duration-200 ${animationClass}`}
+      } transition-all duration-200 ${animationClass} max-w-full`}
     >
       <div
-        className={`z-20 px-4 py-3 flex items-center ${headerBg} ${headerText} ${borderColor} border-b backdrop-blur-sm bg-opacity-90`}
+        className={`z-20 px-2 sm:px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center ${headerBg} ${headerText} ${borderColor} border-b backdrop-blur-sm bg-opacity-90`}
       >
-        <div className="flex items-center gap-3 max-w-[50%]">
+        <div className="flex items-center gap-2 sm:gap-3 max-w-full sm:max-w-[50%]">
           <div className="p-2 rounded-lg bg-opacity-20 backdrop-blur-sm">
             {getContentIcon()}
           </div>
           <div className="font-medium truncate text-sm">{currentTitle}</div>
           {currentContentType === "code" && (
-            <span className="px-3 py-1 text-xs rounded-full bg-indigo-100 text-indigo-800 ml-2 shadow-sm">
+            <span className="px-2 sm:px-3 py-1 text-xs rounded-full bg-indigo-100 text-indigo-800 ml-2 shadow-sm">
               {getLanguageLabel()}
             </span>
           )}
         </div>
-        <div className="ml-auto flex items-center gap-2 bg-white rounded-lg px-3 py-1 shadow-sm">
+        <div className="ml-auto flex items-center gap-1 sm:gap-2 bg-white rounded-lg px-2 sm:px-3 py-1 shadow-sm mt-2 sm:mt-0 flex-wrap">
           <button
             onClick={goBack}
             disabled={historyIndex === 0}
@@ -856,7 +826,7 @@ const CanvasArea = ({
             onMouseEnter={() => handleTooltip("Previous")}
             onMouseLeave={() => handleTooltip("")}
           >
-            <ChevronLeft size={16} className="stroke-2" />
+            <ChevronLeft size={14} className="stroke-2" />
           </button>
           <button
             onClick={goForward}
@@ -869,7 +839,7 @@ const CanvasArea = ({
             onMouseEnter={() => handleTooltip("Next")}
             onMouseLeave={() => handleTooltip("")}
           >
-            <ChevronRight size={16} className="stroke-2" />
+            <ChevronRight size={14} className="stroke-2" />
           </button>
           <div className="w-px h-6 mx-1 bg-slate-200 dark:bg-gray-700 self-center"></div>
           <button
@@ -878,7 +848,7 @@ const CanvasArea = ({
             onMouseEnter={() => handleTooltip("Switch to Book View")}
             onMouseLeave={() => handleTooltip("")}
           >
-            <BookMarked size={16} className="stroke-2" />
+            <BookMarked size={14} className="stroke-2" />
           </button>
           <button
             onClick={copyToClipboard}
@@ -886,9 +856,9 @@ const CanvasArea = ({
             onMouseEnter={() => handleTooltip("Copy")}
             onMouseLeave={() => handleTooltip("")}
           >
-            <Copy size={16} className="stroke-2" />
+            <Copy size={14} className="stroke-2" />
             {copied && (
-              <span className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-3 py-1 rounded-md shadow-lg z-10">
+              <span className="absolute -top-8 sm:-top-10 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-2 sm:px-3 py-1 rounded-md shadow-lg z-10">
                 Copied!
               </span>
             )}
@@ -899,20 +869,18 @@ const CanvasArea = ({
             onMouseEnter={() => handleTooltip("Download")}
             onMouseLeave={() => handleTooltip("")}
           >
-            <Download size={16} className="stroke-2" />
+            <Download size={14} className="stroke-2" />
           </button>
           <button
             onClick={toggleFullscreen}
             className={`p-2 rounded-full transition-all ${buttonText} ${buttonHover}`}
-            onMouseEnter={() =>
-              handleTooltip(fullscreen ? "Exit Fullscreen" : "Fullscreen")
-            }
+            onMouseEnter={() => handleTooltip(fullscreen ? "Exit Fullscreen" : "Fullscreen")}
             onMouseLeave={() => handleTooltip("")}
           >
             {fullscreen ? (
-              <Minimize2 size={16} className="stroke-2" />
+              <Minimize2 size={14} className="stroke-2" />
             ) : (
-              <Maximize2 size={16} className="stroke-2" />
+              <Maximize2 size={14} className="stroke-2" />
             )}
           </button>
           <button
@@ -920,25 +888,25 @@ const CanvasArea = ({
             onMouseEnter={() => handleTooltip("Share")}
             onMouseLeave={() => handleTooltip("")}
           >
-            <Share2 size={16} className="stroke-2" />
+            <Share2 size={14} className="stroke-2" />
           </button>
         </div>
       </div>
 
       {showTooltip && (
-        <div className="absolute top-12 right-4 bg-black text-white text-xs px-3 py-1 rounded-md shadow-lg z-30 transition-opacity duration-200">
+        <div className="absolute top-12 right-2 sm:right-4 bg-black text-white text-xs px-2 sm:px-3 py-1 rounded-md shadow-lg z-30 transition-opacity duration-200">
           {showTooltip}
         </div>
       )}
 
-      <div ref={contentRef} className="flex-1">
+      <div ref={contentRef} className="flex-1 overflow-y-auto max-w-full">
         {hasActivatedCanvasView && renderCanvasContent()}
       </div>
 
       {currentContentType === "code" &&
         viewMode === "canvas" &&
         hasActivatedCanvasView && (
-          <div className="z-20 bg-gray-800 text-gray-400 text-xs py-2 px-4 border-t border-gray-700 flex justify-between items-center">
+          <div className="z-20 bg-gray-800 text-gray-400 text-xs py-2 px-2 sm:px-4 border-t border-gray-700 flex justify-between items-center">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-gray-400"></div>
               <span>{currentContent.split("\n").length} lines</span>

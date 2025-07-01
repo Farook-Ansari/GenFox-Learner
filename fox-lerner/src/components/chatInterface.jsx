@@ -41,6 +41,7 @@ const ChatInterface = ({
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState({});
   const [accumulatedContent, setAccumulatedContent] = useState("");
+  const [previousContent, setPreviousContent] = useState("");
   const [canvasContent, setCanvasContent] = useState({
     content: "",
     contentType: "markdown",
@@ -56,7 +57,7 @@ const ChatInterface = ({
   const [isTyping, setIsTyping] = useState(false);
   const [fullExplanation, setFullExplanation] = useState("");
   const [currentExplanation, setCurrentExplanation] = useState("");
-  const typingSpeedRef = useRef(2);
+  const typingSpeedRef = useRef(10);
 
   const [explainMode, setExplainMode] = useState("chat");
   const [micActive, setMicActive] = useState(false);
@@ -654,12 +655,18 @@ const ChatInterface = ({
 
   const startExplanation = (message) => {
     const explanation = `Here's a simpler explanation of:\n\n"${message}"\n\nThis means the AI assistant is providing a detailed response about ${category}.`;
-    const title = `Explanation of "${message}"`;
-    setAccumulatedContent(
-      (prev) => prev + `\n\n## ${title}\n\n${explanation}\n\n---\n\n`
-    );
+
+    setPreviousContent(""); // or canvasContent.content if appending
+    setFullExplanation(explanation);
+    setCurrentExplanation("");
+    setCanvasContent((prev) => ({
+      ...prev,
+      content: "",
+      title: `Explanation of "${message}"`,
+    }));
     setShowCanvas(true);
-    setExplainMode("chat");
+
+    setTimeout(() => setIsTyping(true), 50);
   };
 
   useEffect(() => {
@@ -673,22 +680,22 @@ const ChatInterface = ({
     }
   }, [inputText]);
 
-  useEffect(() => {
-    if (isTyping && currentExplanation.length < fullExplanation.length) {
-      const timer = setTimeout(() => {
-        setCurrentExplanation(
-          fullExplanation.substring(0, currentExplanation.length + 1)
-        );
-      }, typingSpeedRef.current);
+useEffect(() => {
+  if (isTyping && currentExplanation.length < fullExplanation.length) {
+    const timer = setTimeout(() => {
+      setCurrentExplanation(
+        fullExplanation.substring(0, currentExplanation.length + 1)
+      );
+    }, typingSpeedRef.current);
 
-      return () => clearTimeout(timer);
-    } else if (
-      isTyping &&
-      currentExplanation.length === fullExplanation.length
-    ) {
-      setIsTyping(false);
-    }
-  }, [isTyping, currentExplanation, fullExplanation]);
+    return () => clearTimeout(timer);
+  } else if (
+    isTyping &&
+    currentExplanation.length === fullExplanation.length
+  ) {
+    setIsTyping(false);
+  }
+}, [isTyping, currentExplanation, fullExplanation]);
 
   useEffect(() => {
     if (!showCanvas) {
