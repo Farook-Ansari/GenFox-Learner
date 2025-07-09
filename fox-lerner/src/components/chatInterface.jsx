@@ -1054,7 +1054,7 @@ useEffect(() => {
             ))}
             <div ref={messagesEndRef} />
           </div>
-          <div className="border-t border-slate-100 bg-white p-3">
+          <div className="border-t border-slate-50 bg-slate-50 p-1">
             {selectedOption === "learn" && (
               <div className="mb-2 flex justify-center">
                 <div className="flex gap-1 bg-slate-50 rounded-lg p-1 shadow-sm">
@@ -1115,7 +1115,7 @@ useEffect(() => {
               </div>
             )}
             <div className="flex items-center">
-              <div className="flex-1 border border-slate-200 rounded-lg flex items-center overflow-hidden bg-white">
+              <div className="flex-1 bg-white rounded-full shadow-md border border-slate-200 px-3 py-1 flex items-center transition-all duration-200" style={{ maxWidth: "55%", margin: "0 auto" }}>
                 <textarea
                   ref={inputRef}
                   className="flex-1 px-3 py-1.5 bg-transparent outline-none resize-none text-sm text-slate-700"
@@ -1129,8 +1129,8 @@ useEffect(() => {
                 <button className="p-1 text-slate-300 hover:text-slate-500">
                   <Smile size={16} />
                 </button>
-              </div>
-              <button
+
+                              <button
                 className={`ml-1 p-1 rounded-lg ${
                   inputText.trim() && selectedOption
                     ? "bg-indigo-500 text-white hover:bg-indigo-600"
@@ -1141,6 +1141,8 @@ useEffect(() => {
               >
                 <Send size={16} />
               </button>
+
+              </div>
             </div>
             <div className="mt-1">
               <p className="text-xs text-slate-400 text-center">

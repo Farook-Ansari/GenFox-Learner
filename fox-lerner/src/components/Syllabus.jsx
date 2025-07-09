@@ -67,7 +67,7 @@ const Syllabus = ({ category, categoryIcon, categoryColor, onBackClick }) => {
         id: 3,
         title: 'Advanced Topics',
         lessons: [
-          { id: 301, title: 'Linear Data Structure', completed: false },
+          { id: 301, title: 'Arrey', completed: false },
           { id: 302, title: 'Future Directions', completed: false },
           { id: 303, title: 'Integration with Other Fields', completed: false }
         ]
