@@ -7,18 +7,35 @@ const SignUp = ({ onSignUp, onShowLogin }) => {
   const [studentRegNumber, setStudentRegNumber] = useState('');
   const [dob, setDob] = useState('');
   const [isHovered, setIsHovered] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = () => {
-    console.log('Sign Up submitted', { name, email, password, studentRegNumber, dob });
-    if (onSignUp) {
-      onSignUp();
+  const handleSubmit = async () => {
+    if (!name || !email || !password || !studentRegNumber || !dob) {
+      setError('All fields are required');
+      return;
+    }
+    try {
+      const response = await fetch('http://localhost:8765/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password, studentRegNumber, dob }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        console.log('Sign Up successful', data);
+        if (onSignUp) onSignUp();
+      } else {
+        setError(data.message || 'Signup failed');
+      }
+    } catch (err) {
+      setError('Error connecting to server: ' + err.message);
     }
   };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-slate-50">
       <div 
-        className={`w-full max-w-md mx-4 p-2 bg-white rounded-xl shadow-lg 
+        className={`w-full max-w-md mx-4 p-6 bg-white rounded-xl shadow-lg 
                   border border-blue-100 transition-transform duration-300
                   ${isHovered ? 'scale-105' : 'scale-100'}`}
         style={{
@@ -29,15 +46,12 @@ const SignUp = ({ onSignUp, onShowLogin }) => {
         onMouseLeave={() => setIsHovered(false)}
       >
         <h1 className="text-center mb-6">
-          <span className="text-3xl font-semibold text-slate-700">
-            Sign Up
-          </span>
+          <span className="text-3xl font-semibold text-slate-700">Sign Up</span>
         </h1>
+        {error && <p className="text-red-500 text-center mb-4">{error}</p>}
         
-        <div className="mb-3">
-          <label className="block mb-2 text-sm font-medium text-slate-700" htmlFor="name">
-            Name
-          </label>
+        <div className="mb-5">
+          <label className="block mb-2 text-sm font-medium text-slate-700" htmlFor="name">Name</label>
           <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" 
@@ -60,10 +74,8 @@ const SignUp = ({ onSignUp, onShowLogin }) => {
           </div>
         </div>
         
-        <div className="mb-3">
-          <label className="block mb-2 text-sm font-medium text-slate-700" htmlFor="email">
-            Email
-          </label>
+        <div className="mb-5">
+          <label className="block mb-2 text-sm font-medium text-slate-700" htmlFor="email">Email</label>
           <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" 
@@ -86,10 +98,8 @@ const SignUp = ({ onSignUp, onShowLogin }) => {
           </div>
         </div>
         
-        <div className="mb-3">
-          <label className="block mb-2 text-sm font-medium text-slate-700" htmlFor="studentRegNumber">
-            Student Register Number
-          </label>
+        <div className="mb-5">
+          <label className="block mb-2 text-sm font-medium text-slate-700" htmlFor="studentRegNumber">Student Register Number</label>
           <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" 
@@ -113,9 +123,7 @@ const SignUp = ({ onSignUp, onShowLogin }) => {
         </div>
         
         <div className="mb-6">
-          <label className="block mb-2 text-sm font-medium text-slate-700" htmlFor="dob">
-            Date of Birth
-          </label>
+          <label className="block mb-2 text-sm font-medium text-slate-700" htmlFor="dob">Date of Birth</label>
           <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" 
@@ -140,9 +148,7 @@ const SignUp = ({ onSignUp, onShowLogin }) => {
         </div>
         
         <div className="mb-6">
-          <label className="block mb-2 text-sm font-medium text-slate-700" htmlFor="password">
-            Password
-          </label>
+          <label className="block mb-2 text-sm font-medium text-slate-700" htmlFor="password">Password</label>
           <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" 

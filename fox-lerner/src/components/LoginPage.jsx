@@ -4,6 +4,30 @@ const LoginPage = ({ onLogin, onShowSignUp }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isHovered, setIsHovered] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
+    if (!email || !password) {
+      setError('Email and password are required');
+      return;
+    }
+    try {
+      const response = await fetch('http://localhost:8765/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        console.log('Login successful', data);
+        if (onLogin) onLogin(data.token, email);
+      } else {
+        setError(data.message || 'Login failed');
+      }
+    } catch (err) {
+      setError('Error connecting to server: ' + err.message);
+    }
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-slate-50">
@@ -19,15 +43,12 @@ const LoginPage = ({ onLogin, onShowSignUp }) => {
         onMouseLeave={() => setIsHovered(false)}
       >
         <h1 className="text-center mb-6">
-          <span className="text-3xl font-semibold text-slate-700">
-            Login
-          </span>
+          <span className="text-3xl font-semibold text-slate-700">Login</span>
         </h1>
+        {error && <p className="text-red-500 text-center mb-4">{error}</p>}
         
         <div className="mb-5">
-          <label className="block mb-2 text-sm font-medium text-slate-700" htmlFor="email">
-            Email
-          </label>
+          <label className="block mb-2 text-sm font-medium text-slate-700" htmlFor="email">Email</label>
           <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" 
@@ -51,9 +72,7 @@ const LoginPage = ({ onLogin, onShowSignUp }) => {
         </div>
         
         <div className="mb-6">
-          <label className="block mb-2 text-sm font-medium text-slate-700" htmlFor="password">
-            Password
-          </label>
+          <label className="block mb-2 text-sm font-medium text-slate-700" htmlFor="password">Password</label>
           <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" 
@@ -82,7 +101,7 @@ const LoginPage = ({ onLogin, onShowSignUp }) => {
                   focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
                   hover:shadow-lg transition-all duration-300
                   relative overflow-hidden text-base"
-          onClick={onLogin}
+          onClick={handleSubmit}
         >
           <span className="relative z-10">Sign In</span>
           <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-500 opacity-0 hover:opacity-20 transition-opacity duration-300"></div>
