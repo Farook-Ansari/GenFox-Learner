@@ -11,14 +11,18 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.4",
+    "codemirror": "^6.0.2",
+    "js-interpreter": "^6.0.1",
     "konva": "^9.3.20",
     "lucide-react": "^0.488.0",
-    "mermaid": "^11.7.0",
+    "mermaid": "^11.9.0",
     "prismjs": "^1.30.0",
     "react": "^19.0.0",
+    "react-codemirror2": "^8.0.1",
     "react-dom": "^19.0.0",
     "react-konva": "^19.0.6",
-    "react-markdown": "^10.1.0"
+    "react-markdown": "^10.1.0",
+    "react-simple-code-editor": "^0.14.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",

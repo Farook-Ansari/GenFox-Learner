@@ -176,7 +176,7 @@ const Assessment = ({ category, categoryIcon, categoryColor, onBackClick, onNavi
             {categoryIcon}
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-slate-800">{category} Assessments</h1>
+            <h1 className="text-xl font-semibold text-slate-800">{/* {category} */} Assessments</h1>
             <p className="text-sm text-slate-500">Test your knowledge and skills</p>
           </div>
         </div>

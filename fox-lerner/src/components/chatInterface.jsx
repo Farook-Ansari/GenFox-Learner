@@ -48,6 +48,7 @@ const ChatInterface = ({
     title: "Conversation History",
     language: "plaintext",
   });
+  const [connectionError, setConnectionError] = useState(null);
 
   const recognition = useRef(null);
   const recognitionRef = useRef(null);
@@ -82,6 +83,7 @@ const ChatInterface = ({
   const [isRecognitionActive, setIsRecognitionActive] = useState(false);
   const canvasRef = useRef(null);
   const ws = useRef(null);
+  const audioTimeoutRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -106,71 +108,97 @@ const ChatInterface = ({
       return;
     }
 
-    ws.current = new WebSocket("ws://localhost:8765/ws");
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      console.error("No auth token found. Redirecting to login.");
+      setConnectionError("Please log in to continue.");
+      setTimeout(() => onNavigate?.("login"), 2000);
+      return;
+    }
+
+    ws.current = new WebSocket(`ws://localhost:8765/ws?token=${encodeURIComponent(token)}`);
     let reconnectTimer = null;
 
     ws.current.onopen = () => {
       console.log("WebSocket connection opened, attempt:", attempt);
       if (reconnectTimer) clearTimeout(reconnectTimer);
+      setConnectionError(null);
     };
 
     ws.current.onmessage = async (event) => {
-      const data = JSON.parse(event.data);
-      console.log("Received data from backend:", data);
-      const newMessage = {
-        type: "assistant",
-        content: data.text,
-        mode: data.mode,
-        quizOptions: data.quizOptions || null,
-      };
+      try {
+        const data = JSON.parse(event.data);
+        console.log("Received data from backend:", data);
 
-      setMessages((prev) => [...prev, newMessage]);
+        if (data.error) {
+          console.error("Backend error:", data.error);
+          if (data.error.includes("Invalid token")) {
+            setConnectionError("Session expired. Please log in again.");
+            localStorage.removeItem("authToken");
+            setTimeout(() => onNavigate?.("login"), 2000);
+            return;
+          }
+        }
 
-      const title =
-        data.responseType === "quiz"
-          ? `Quiz on "${data.question}"`
-          : `Explanation of "${data.question}"`;
-      setAccumulatedContent((prev) => {
-        const newContent =
-          prev + `\n\n## ${title}\n\n${data.detailed}\n\n---\n\n`;
-        setCanvasContent({
-          content: newContent,
-          contentType: "markdown",
-          title: "Conversation History",
-          language: "plaintext",
+        const newMessage = {
+          type: "assistant",
+          content: data.text,
+          mode: data.mode,
+          quizOptions: data.quizOptions || null,
+        };
+
+        setMessages((prev) => [...prev, newMessage]);
+
+        const title =
+          data.responseType === "quiz"
+            ? `Quiz on "${data.question}"`
+            : `Explanation of "${data.question}"`;
+        setAccumulatedContent((prev) => {
+          const newContent =
+            prev + `\n\n## ${title}\n\n${data.detailed}\n\n---\n\n`;
+          setCanvasContent({
+            content: newContent,
+            contentType: "markdown",
+            title: "Conversation History",
+            language: "plaintext",
+          });
+          return newContent;
         });
-        return newContent;
-      });
 
-      if (data.mode === "voice_query" && data.audio) {
-        console.log("Processing voice response with audio");
-        stopRecognition();
-        const audioBlob = base64ToBlob(data.audio, "audio/mp3");
-        const audioUrl = URL.createObjectURL(audioBlob);
-        audioRef.current = new Audio(audioUrl);
-        handleAudioEvents(audioRef.current);
+        if (data.mode === "voice_query" && data.audio) {
+          console.log("Processing voice response with audio");
+          stopRecognition();
+          const audioBlob = base64ToBlob(data.audio, "audio/mp3");
+          const audioUrl = URL.createObjectURL(audioBlob);
+          audioRef.current = new Audio(audioUrl);
+          handleAudioEvents(audioRef.current);
 
-        audioTimeoutRef.current = setTimeout(() => {
-          if (isPlayingAudio) {
-            console.warn("Audio playback timeout");
+          audioTimeoutRef.current = setTimeout(() => {
+            if (isPlayingAudio) {
+              console.warn("Audio playback timeout");
+              setIsPlayingAudio(false);
+              if (isVoiceModeActive) startRecognition();
+            }
+          }, 10000);
+
+          audioRef.current.play().catch((e) => {
+            console.error("Error playing audio:", e);
+            clearTimeout(audioTimeoutRef.current);
             setIsPlayingAudio(false);
             if (isVoiceModeActive) startRecognition();
-          }
-        }, 10000);
-
-        audioRef.current.play().catch((e) => {
-          console.error("Error playing audio:", e);
-          clearTimeout(audioTimeoutRef.current);
-          setIsPlayingAudio(false);
-          if (isVoiceModeActive) startRecognition();
-        });
+          });
+        }
+        setIsProcessing(false);
+        setShowCanvas(true);
+      } catch (e) {
+        console.error("Error processing WebSocket message:", e);
+        setConnectionError("Error processing server response.");
       }
-      setIsProcessing(false);
-      setShowCanvas(true);
     };
 
     ws.current.onerror = (error) => {
       console.error("WebSocket error:", error);
+      setConnectionError("Failed to connect to server. Please try again.");
       if (
         ![WebSocket.CLOSED, WebSocket.CLOSING].includes(ws.current?.readyState)
       ) {
@@ -180,14 +208,26 @@ const ChatInterface = ({
 
     ws.current.onclose = (event) => {
       console.log("WebSocket connection closed:", event.code, event.reason);
-      if (attempt < MAX_RECONNECT_ATTEMPTS) {
+      if (event.code === 1006) {
+        console.error("Abnormal WebSocket closure. Possible server or network issue.");
+        setConnectionError("Connection lost. Attempting to reconnect...");
+      } else if (event.code === 1008 && event.reason.includes("Invalid token")) {
+        setConnectionError("Session expired. Please log in again.");
+        localStorage.removeItem("authToken");
+        setTimeout(() => onNavigate?.("login"), 2000);
+      } else if (attempt < MAX_RECONNECT_ATTEMPTS) {
+        console.log(`Reconnecting WebSocket, attempt ${attempt + 1}`);
         reconnectTimer = setTimeout(
           () => connectWebSocket(attempt + 1),
           RECONNECT_DELAY
         );
+      } else {
+        console.error("Max reconnection attempts reached.");
+        setConnectionError("Unable to connect to server. Please try again later.");
+        setTimeout(() => onNavigate?.("login"), 2000);
       }
     };
-  }, []);
+  }, [onNavigate, isVoiceModeActive]);
 
   useEffect(() => {
     connectWebSocket();
@@ -294,6 +334,8 @@ const ChatInterface = ({
         } else {
           console.error("WebSocket not open for sending voice query");
           setVoiceStatus("WebSocket connection error");
+          setConnectionError("Cannot send message. Server is unavailable.");
+          setTimeout(() => setConnectionError(null), 3000);
         }
       };
 
@@ -398,8 +440,6 @@ const ChatInterface = ({
     });
   };
 
-  const audioTimeoutRef = useRef(null);
-
   async function startScreenShare() {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
@@ -500,51 +540,9 @@ const ChatInterface = ({
         })
       );
     } else {
-      const matchedFlow = questionAnswerFlow.find((flow) =>
-        flow.question.test(inputText)
-      );
-      if (matchedFlow) {
-        const chatResponse = matchedFlow.chatResponse;
-        const canvasData = matchedFlow.canvasContent;
-
-        if (matchedFlow.question.test(/first element.*index 0/i)) {
-          setSelectedOption("quiz");
-          setOptionSelected(true);
-        }
-
-        setTimeout(() => {
-          setMessages((prev) => [
-            ...prev,
-            { type: "assistant", content: chatResponse },
-          ]);
-          if (selectedOption !== "learn") {
-            const title = `Explanation of "${inputText}"`;
-            setAccumulatedContent(
-              (prev) =>
-                prev + `\n\n## ${title}\n\n${canvasData.content}\n\n---\n\n`
-            );
-          }
-        }, 1000);
-      } else {
-        console.warn(
-          "WebSocket is not open or no flow match. Falling back to default response."
-        );
-        const chatResponse = `This is a simulated response about ${category} using the ${selectedOption} approach in ${selectedChat}.`;
-        const detailed = `\n\nExplanation of ${inputText}`;
-
-        setTimeout(() => {
-          setMessages((prev) => [
-            ...prev,
-            { type: "assistant", content: chatResponse },
-          ]);
-          if (selectedOption !== "learn") {
-            const title = `Explanation of "${inputText}"`;
-            setAccumulatedContent(
-              (prev) => prev + `\n\n## ${title}\n\n${detailed}\n\n---\n\n`
-            );
-          }
-        }, 1000);
-      }
+      console.warn("WebSocket is not open. Please check server connection.");
+      setConnectionError("Cannot send message. Server is unavailable.");
+      setTimeout(() => setConnectionError(null), 3000);
     }
 
     setInputText("");
@@ -557,9 +555,7 @@ const ChatInterface = ({
     const isCorrect = selected.includes(correctAnswer) && selected.length === 1;
     const feedback = isCorrect
       ? "Correct! arr[2] is 30."
-      : `Incorrect. The correct answer is 30. You selected: ${selected.join(
-          ", "
-        )}.`;
+      : `Incorrect. The correct answer is 30. You selected: ${selected.join(", ")}.`;
 
     setMessages((prev) =>
       prev.map((msg, idx) =>
@@ -656,7 +652,7 @@ const ChatInterface = ({
   const startExplanation = (message) => {
     const explanation = `Here's a simpler explanation of:\n\n"${message}"\n\nThis means the AI assistant is providing a detailed response about ${category}.`;
 
-    setPreviousContent(""); // or canvasContent.content if appending
+    setPreviousContent("");
     setFullExplanation(explanation);
     setCurrentExplanation("");
     setCanvasContent((prev) => ({
@@ -667,6 +663,25 @@ const ChatInterface = ({
     setShowCanvas(true);
 
     setTimeout(() => setIsTyping(true), 50);
+  };
+
+  const startLearningSession = (message) => {
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      setIsProcessing(true);
+      ws.current.send(
+        JSON.stringify({
+          type: "text_query",
+          question: `Explain ${message} in a learning session for ${category} using interactive examples`,
+          frame: currentFrame,
+          mode: "learn",
+        })
+      );
+      setShowCanvas(true);
+      setExplainMode("chat");
+    } else {
+      setConnectionError("Cannot start learning session. Server is unavailable.");
+      setTimeout(() => setConnectionError(null), 3000);
+    }
   };
 
   useEffect(() => {
@@ -680,22 +695,22 @@ const ChatInterface = ({
     }
   }, [inputText]);
 
-useEffect(() => {
-  if (isTyping && currentExplanation.length < fullExplanation.length) {
-    const timer = setTimeout(() => {
-      setCurrentExplanation(
-        fullExplanation.substring(0, currentExplanation.length + 1)
-      );
-    }, typingSpeedRef.current);
+  useEffect(() => {
+    if (isTyping && currentExplanation.length < fullExplanation.length) {
+      const timer = setTimeout(() => {
+        setCurrentExplanation(
+          fullExplanation.substring(0, currentExplanation.length + 1)
+        );
+      }, typingSpeedRef.current);
 
-    return () => clearTimeout(timer);
-  } else if (
-    isTyping &&
-    currentExplanation.length === fullExplanation.length
-  ) {
-    setIsTyping(false);
-  }
-}, [isTyping, currentExplanation, fullExplanation]);
+      return () => clearTimeout(timer);
+    } else if (
+      isTyping &&
+      currentExplanation.length === fullExplanation.length
+    ) {
+      setIsTyping(false);
+    }
+  }, [isTyping, currentExplanation, fullExplanation]);
 
   useEffect(() => {
     if (!showCanvas) {
@@ -800,22 +815,6 @@ useEffect(() => {
     setOptionSelected(true);
   };
 
-  const startLearningSession = (message) => {
-    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-      setIsProcessing(true);
-      ws.current.send(
-        JSON.stringify({
-          type: "text_query",
-          question: `Explain ${message} in a learning session for ${category} using interactive examples`,
-          frame: currentFrame,
-          mode: "learn",
-        })
-      );
-      setShowCanvas(true);
-      setExplainMode("chat");
-    }
-  };
-
   const handleChatSelect = (chat) => {
     setSelectedChat(chat);
     setShowChatDropdown(false);
@@ -866,6 +865,11 @@ useEffect(() => {
 
   return (
     <div className="flex flex-col h-full bg-white">
+      {connectionError && (
+        <div className="bg-red-100 text-red-700 p-2 text-sm text-center">
+          {connectionError}
+        </div>
+      )}
       <div className="flex-1 flex">
         <div
           className={`${
@@ -1129,19 +1133,17 @@ useEffect(() => {
                 <button className="p-1 text-slate-300 hover:text-slate-500">
                   <Smile size={16} />
                 </button>
-
-                              <button
-                className={`ml-1 p-1 rounded-lg ${
-                  inputText.trim() && selectedOption
-                    ? "bg-indigo-500 text-white hover:bg-indigo-600"
-                    : "bg-slate-100 text-slate-400"
-                } transition-all`}
-                onClick={() => handleSendMessage()}
-                disabled={!inputText.trim() || !selectedOption}
-              >
-                <Send size={16} />
-              </button>
-
+                <button
+                  className={`ml-1 p-1 rounded-lg ${
+                    inputText.trim() && selectedOption
+                      ? "bg-indigo-500 text-white hover:bg-indigo-600"
+                      : "bg-slate-100 text-slate-400"
+                  } transition-all`}
+                  onClick={() => handleSendMessage()}
+                  disabled={!inputText.trim() || !selectedOption}
+                >
+                  <Send size={16} />
+                </button>
               </div>
             </div>
             <div className="mt-1">

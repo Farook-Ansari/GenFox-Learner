@@ -27,6 +27,7 @@ import "prismjs/plugins/line-numbers/prism-line-numbers.css";
 import "prismjs/plugins/line-numbers/prism-line-numbers";
 import ReactMarkdown from "react-markdown";
 import mermaid from "mermaid";
+import Editor from "react-simple-code-editor";
 
 const CanvasArea = ({
   content,
@@ -54,6 +55,8 @@ const CanvasArea = ({
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [codeContents, setCodeContents] = useState({});
   const [codeOutputs, setCodeOutputs] = useState({});
+  const [displayedContent, setDisplayedContent] = useState(""); // State for typing effect
+  const [isTyping, setIsTyping] = useState(false); // Track typing animation
   const contentRef = useRef(null);
   const bookCodeRef = useRef(null);
 
@@ -67,22 +70,69 @@ const CanvasArea = ({
     }
   }, [viewMode, onSwitchToBook, currentContent, currentTitle, currentContentType, currentLanguage]);
 
+  // Handle content updates and trigger typing effect
   useEffect(() => {
+    // Update history with new content
+    setHistory((prev) => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      return [...newHistory, { content, contentType, language, title }];
+    });
+    setHistoryIndex((prev) => prev + 1);
+
+    // Update current states
     setCurrentContent(content);
     setCurrentContentType(contentType);
     setCurrentLanguage(language);
     setCurrentTitle(title);
+
+    // Trigger typing effect for new messages in canvas view
+    if (
+      viewMode === "canvas" &&
+      isNewMessage &&
+      ["text", "markdown", "code"].includes(contentType)
+    ) {
+      setDisplayedContent(""); // Reset displayed content
+      setIsTyping(true); // Start typing animation
+    } else {
+      setDisplayedContent(content); // Show full content immediately
+      setIsTyping(false);
+    }
+
+    // Scroll to the end of content for new messages
     if (contentRef.current && isNewMessage) {
       contentRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
     }
-  }, [content, contentType, language, title, isNewMessage]);
+  }, [content, contentType, language, title, isNewMessage, viewMode]);
 
+  // Typing effect logic
+  useEffect(() => {
+    if (isTyping && viewMode === "canvas" && displayedContent.length < currentContent.length) {
+      const typingSpeed = currentContentType === "code" ? 20 : 10; // Slower for code
+      const timer = setInterval(() => {
+        setDisplayedContent((prev) => {
+          const nextIndex = prev.length + 1;
+          if (nextIndex <= currentContent.length) {
+            return currentContent.slice(0, nextIndex);
+          }
+          setIsTyping(false);
+          return prev;
+        });
+      }, typingSpeed);
+
+      return () => clearInterval(timer);
+    } else if (isTyping && displayedContent.length >= currentContent.length) {
+      setIsTyping(false);
+    }
+  }, [isTyping, displayedContent, currentContent, currentContentType, viewMode]);
+
+  // Handle Prism highlighting for code
   useEffect(() => {
     if (currentContentType === "code" && viewMode === "canvas") {
       Prism.highlightAll();
     }
-  }, [currentContent, currentContentType, currentLanguage, viewMode]);
+  }, [displayedContent, currentContentType, currentLanguage, viewMode]);
 
+  // Scroll to bottom after quiz submission
   useEffect(() => {
     if (quizSubmitted && contentRef.current) {
       contentRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -110,22 +160,14 @@ const CanvasArea = ({
   const getFileExtension = (type, lang) => {
     if (type === "code") {
       switch (lang) {
-        case "javascript":
-          return "js";
-        case "jsx":
-          return "jsx";
-        case "python":
-          return "py";
-        case "java":
-          return "java";
-        case "csharp":
-          return "cs";
-        case "css":
-          return "css";
-        case "json":
-          return "json";
-        default:
-          return "txt";
+        case "javascript": return "js";
+        case "jsx": return "jsx";
+        case "python": return "py";
+        case "java": return "java";
+        case "csharp": return "cs";
+        case "css": return "css";
+        case "json": return "json";
+        default: return "txt";
       }
     }
     return "txt";
@@ -142,24 +184,29 @@ const CanvasArea = ({
       setHistoryIndex(newIndex);
       setSelectedAnswer(null);
       setQuizFeedback("");
+      setDisplayedContent(previousItem.content); // Show full content
+      setIsTyping(false); // Disable typing for history
       if (contentRef.current) contentRef.current.scrollTop = 0;
     }
   };
 
-const goForward = () => {
-  if (historyIndex < history.length - 1) {
-    const newIndex = historyIndex + 1;
-    const nextItem = history[newIndex];
-    setCurrentContent(nextItem.content);
-    setCurrentContentType(nextItem.contentType);
-    setCurrentLanguage(nextItem.language);
-    setCurrentTitle(nextItem.title);
-    setHistoryIndex(newIndex);
-    setSelectedAnswer(null);
-    setQuizFeedback("");
-    if (contentRef.current) contentRef.current.scrollTop = 0;
-  }
-};
+  const goForward = () => {
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      const nextItem = history[newIndex];
+      setCurrentContent(nextItem.content);
+      setCurrentContentType(nextItem.contentType);
+      setCurrentLanguage(nextItem.language);
+      setCurrentTitle(nextItem.title);
+      setHistoryIndex(newIndex);
+      setSelectedAnswer(null);
+      setQuizFeedback("");
+      setDisplayedContent(nextItem.content); // Show full content
+      setIsTyping(false); // Disable typing for history
+      if (contentRef.current) contentRef.current.scrollTop = 0;
+    }
+  };
+
   const toggleFullscreen = () => {
     setFullscreen(!fullscreen);
   };
@@ -169,7 +216,14 @@ const goForward = () => {
     setTimeout(() => {
       const newMode = viewMode === "canvas" ? "book" : "canvas";
       setViewMode(newMode);
-      if (newMode === "canvas") setHasActivatedCanvasView(true);
+      setHasActivatedCanvasView(true);
+      if (newMode === "canvas" && isNewMessage && ["text", "markdown", "code"].includes(currentContentType)) {
+        setDisplayedContent("");
+        setIsTyping(true); // Trigger typing effect
+      } else {
+        setDisplayedContent(currentContent);
+        setIsTyping(false);
+      }
       if (onSwitchToBook && newMode === "book") {
         onSwitchToBook(currentContent, currentTitle, currentContentType, currentLanguage);
       }
@@ -183,37 +237,24 @@ const goForward = () => {
 
   const getLanguageLabel = () => {
     switch (currentLanguage) {
-      case "javascript":
-        return "JavaScript";
-      case "jsx":
-        return "React JSX";
-      case "python":
-        return "Python";
-      case "java":
-        return "Java";
-      case "csharp":
-        return "C#";
-      case "css":
-        return "CSS";
-      case "json":
-        return "JSON";
-      default:
-        return currentLanguage.charAt(0).toUpperCase() + currentLanguage.slice(1);
+      case "javascript": return "JavaScript";
+      case "jsx": return "React JSX";
+      case "python": return "Python";
+      case "java": return "Java";
+      case "csharp": return "C#";
+      case "css": return "CSS";
+      case "json": return "JSON";
+      default: return currentLanguage.charAt(0).toUpperCase() + currentLanguage.slice(1);
     }
   };
 
   const getContentIcon = () => {
     switch (currentContentType) {
-      case "code":
-        return <Code size={18} className="text-indigo-600" />;
-      case "text":
-        return <FileText size={18} className="text-indigo-600" />;
-      case "markdown":
-        return <FileText size={18} className="text-indigo-600" />;
-      case "image":
-        return <ImageIcon size={18} className="text-indigo-600" />;
-      default:
-        return <FileText size={18} className="text-indigo-600" />;
+      case "code": return <Code size={18} className="text-indigo-600" />;
+      case "text": return <FileText size={18} className="text-indigo-600" />;
+      case "markdown": return <FileText size={18} className="text-indigo-600" />;
+      case "image": return <ImageIcon size={18} className="text-indigo-600" />;
+      default: return <FileText size={18} className="text-indigo-600" />;
     }
   };
 
@@ -312,12 +353,16 @@ const goForward = () => {
     return <div className="mermaid max-w-full overflow-x-auto" dangerouslySetInnerHTML={{ __html: svg }} />;
   };
 
+  const highlightCode = (code, lang) => {
+    return Prism.highlight(code, Prism.languages[lang] || Prism.languages.plaintext, lang);
+  };
+
   const renderInlineCode = (code, blockId) => {
     const currentCode = codeContents[blockId] !== undefined ? codeContents[blockId] : code;
     return (
       <div className="my-4 bg-gray-100 rounded-lg overflow-hidden shadow-inner">
         <div className="flex items-center justify-between px-4 py-2 bg-gray-200 text-gray-700 text-sm font-mono border-b border-gray-300">
-          <span>JavaScript Code</span>
+          <span>{getLanguageLabel()}</span>
           <button
             onClick={() => runCode(currentCode, blockId)}
             className="flex items-center gap-1 px-3 py-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-all"
@@ -326,12 +371,20 @@ const goForward = () => {
             Run
           </button>
         </div>
-        <textarea
+        <Editor
           value={currentCode}
-          onChange={(e) => setCodeContents((prev) => ({ ...prev, [blockId]: e.target.value }))}
-          className="w-full min-h-[200px] p-4 font-mono text-sm text-gray-800 bg-white overflow-y-auto resize-y"
-          spellCheck="false"
-          placeholder="// Write your JavaScript code here"
+          onValueChange={(code) => setCodeContents((prev) => ({ ...prev, [blockId]: code }))}
+          highlight={(code) => highlightCode(code, currentLanguage)}
+          padding={16}
+          className="w-full min-h-[200px] font-mono text-sm text-gray-800 bg-white overflow-y-auto resize-y focus:outline-none"
+          style={{
+            fontFamily: '"Fira Code", monospace',
+            fontSize: '14px',
+            lineHeight: '1.5',
+            border: 'none',
+            backgroundColor: '#fff',
+            caretColor: '#000',
+          }}
         />
         {codeOutputs[blockId] && (
           <div className="bg-gray-50 p-4">
@@ -351,7 +404,8 @@ const goForward = () => {
       const output = [];
       const originalConsoleLog = console.log;
       console.log = (...args) => output.push(args.join(" "));
-      eval(code); // Simple execution for testing
+      // eslint-disable-next-line no-eval
+      eval(code);
       console.log = originalConsoleLog;
       setCodeOutputs((prev) => ({ ...prev, [blockId]: output.join("\n") || "No output" }));
     } catch (error) {
@@ -363,18 +417,12 @@ const goForward = () => {
   const renderBookContent = () => {
     const getPageBackground = () => {
       switch (currentContentType) {
-        case "code":
-          return "bg-gray-50 border-gray-200";
-        case "text":
-          return "bg-white border-white";
-        case "markdown":
-          return "bg-blue-50 border-blue-100";
-        case "image":
-          return "bg-white border-gray-100";
-        case "quiz":
-          return "bg-white border-white";
-        default:
-          return "bg-amber-50 border-amber-100";
+        case "code": return "bg-gray-50 border-gray-200";
+        case "text": return "bg-white border-white";
+        case "markdown": return "bg-blue-50 border-blue-100";
+        case "image": return "bg-white border-gray-100";
+        case "quiz": return "bg-white border-white";
+        default: return "bg-amber-50 border-amber-100";
       }
     };
 
@@ -437,7 +485,7 @@ const goForward = () => {
             </div>
             <pre className="p-4 text-sm bg-white overflow-y-auto max-w-full">
               <code ref={bookCodeRef} className="font-mono text-gray-800">
-                {currentContent}
+                {displayedContent}
               </code>
             </pre>
           </div>
@@ -475,7 +523,7 @@ const goForward = () => {
                 },
               }}
             >
-              {currentContent}
+              {displayedContent}
             </ReactMarkdown>
           </div>
         );
@@ -493,7 +541,7 @@ const goForward = () => {
         const { quiz, misconception, relatedConcepts } = parseContent();
         return (
           <div className="space-y-6 overflow-y-auto max-w-full">
-            {currentContent.split("\n\n").map((section, index) => {
+            {displayedContent.split("\n\n").map((section, index) => {
               if (section.startsWith("Quiz")) {
                 return (
                   <div key={index}>
@@ -664,14 +712,14 @@ const goForward = () => {
                 {getLanguageLabel()}
               </div>
             )}
-            {renderInlineCode(currentContent, "single-code-block")}
+            {renderInlineCode(displayedContent, "single-code-block")}
           </div>
         );
       case "text":
         const { quiz, misconception, relatedConcepts } = parseContent();
         return (
           <div className="p-4 sm:p-6 whitespace-pre-wrap text-slate-700 bg-white rounded-none space-y-6 overflow-y-auto max-w-full">
-            {currentContent.split("\n\n").map((section, index) => {
+            {displayedContent.split("\n\n").map((section, index) => {
               if (section.startsWith("Quiz")) {
                 return (
                   <div key={index}>
@@ -743,7 +791,7 @@ const goForward = () => {
                 },
               }}
             >
-              {currentContent}
+              {displayedContent}
             </ReactMarkdown>
           </div>
         );
@@ -758,7 +806,11 @@ const goForward = () => {
           </div>
         );
       default:
-        return <div className="p-4 sm:p-6 whitespace-pre-wrap overflow-y-auto max-w-full">{currentContent}</div>;
+        return (
+          <div className="p-4 sm:p-6 whitespace-pre-wrap overflow-y-auto max-w-full">
+            {displayedContent}
+          </div>
+        );
     }
   };
 

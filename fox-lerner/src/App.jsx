@@ -17,12 +17,13 @@ const App = () => {
   const [currentView, setCurrentView] = useState('dashboard');
   const [chatQuestion, setChatQuestion] = useState('');
   const [selectedLesson, setSelectedLesson] = useState(null);
-  const [showSyllabus, setShowSyllabus] = useState(true);
+  const [showSyllabus, setShowSyllabus] = useState(false);
+  const [selectedModule, setSelectedModule] = useState(null); // New state for selected module
   const [activeProject, setActiveProject] = useState(null);
   const [projectName, setProjectName] = useState('');
   const [projects, setProjects] = useState([]);
   const [selectedAssessment, setSelectedAssessment] = useState(null);
-  const [authView, setAuthView] = useState('login'); // New state for auth navigation
+  const [authView, setAuthView] = useState('login');
 
   const [notesData, setNotesData] = useState([
     {
@@ -30,36 +31,36 @@ const App = () => {
       subject: 'Mathematics',
       content: 'Review calculus formulas for the upcoming test. Focus on integration by parts and substitution methods.',
       timestamp: '2025-05-08T14:30:00Z',
-      color: 'bg-blue-50 text-blue-500'
+      color: 'bg-blue-50 text-blue-500',
     },
     {
       id: 2,
       subject: 'OOPS with C++',
       content: 'Study inheritance, polymorphism, and encapsulation concepts. Practice virtual functions and operator overloading examples.',
       timestamp: '2025-05-07T09:15:00Z',
-      color: 'bg-purple-50 text-purple-500'
+      color: 'bg-purple-50 text-purple-500',
     },
     {
       id: 3,
       subject: 'Data Structures',
       content: 'Implement binary search tree and heap data structures. Analyze time complexity for each operation.',
       timestamp: '2025-05-06T11:45:00Z',
-      color: 'bg-green-50 text-green-500'
+      color: 'bg-green-50 text-green-500',
     },
     {
       id: 4,
       subject: 'Computer Networks',
       content: 'Study TCP/IP protocol stack, OSI model layers, and routing algorithms. Review subnet masking calculations.',
       timestamp: '2025-05-05T16:20:00Z',
-      color: 'bg-orange-50 text-orange-500'
+      color: 'bg-orange-50 text-orange-500',
     },
     {
       id: 5,
       subject: 'Software Engineering',
       content: 'Review software development life cycle models. Study agile methodologies and scrum practices.',
       timestamp: '2025-05-04T10:00:00Z',
-      color: 'bg-red-50 text-red-500'
-    }
+      color: 'bg-red-50 text-red-500',
+    },
   ]);
 
   const addNote = (newNote) => {
@@ -71,7 +72,7 @@ const App = () => {
   };
 
   const handleSignUp = () => {
-    setIsLoggedIn(true); // Assuming successful signup leads to login
+    setAuthView('login');
   };
 
   const handleNavItemClick = (itemId, projectNameParam) => {
@@ -80,9 +81,12 @@ const App = () => {
       setProjectName(projectNameParam || 'Unnamed Project');
       setActiveProject(projectId);
       setCurrentView('project');
+      setShowSyllabus(false);
+      setSelectedModule(null);
     } else {
       if (itemId === 'learning') {
-        setShowSyllabus(false);
+        setShowSyllabus(false); // Show LearningModule for module selection
+        setSelectedModule(null); // Reset selected module
       }
       setCurrentView(itemId);
       if (itemId !== 'chat') {
@@ -114,20 +118,27 @@ const App = () => {
     setCurrentView('chat');
   };
 
+  const handleModuleSelect = (module) => {
+    setSelectedModule(module); // Store selected module
+    setShowSyllabus(true); // Show Syllabus for the selected module
+    setCurrentView('learning');
+  };
+
   const handleLessonClick = (moduleTitle, lesson) => {
     const initialQuestion = `Tell me about "${lesson.title}" from the ${moduleTitle} module`;
     setChatQuestion(initialQuestion);
     setSelectedLesson({
       moduleTitle,
       lesson,
-      initialQuestion
+      initialQuestion,
     });
     setShowSyllabus(false);
     setCurrentView('chat');
   };
 
-  const handleBackToSyllabus = () => {
-    setShowSyllabus(true);
+  const handleBackToModules = () => {
+    setShowSyllabus(false);
+    setSelectedModule(null);
     setCurrentView('learning');
   };
 
@@ -152,57 +163,62 @@ const App = () => {
   if (!isLoggedIn) {
     return (
       <>
-        {authView === 'login' && <LoginPage onLogin={handleLogin} onShowSignUp={handleShowSignUp} />}
-        {authView === 'signup' && <SignUp onSignUp={handleSignUp} onShowLogin={handleShowLogin} />}
+        {authView === 'login' && (
+          <LoginPage onLogin={handleLogin} onShowSignUp={handleShowSignUp} />
+        )}
+        {authView === 'signup' && (
+          <SignUp onShowLogin={handleShowLogin} />
+        )}
       </>
     );
   }
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
-      <Sidebar 
-        onNavItemClick={handleNavItemClick} 
+      <Sidebar
+        onNavItemClick={handleNavItemClick}
         onProjectAdded={handleProjectAdded}
         onProjectsUpdated={handleProjectUpdated}
         initialProjects={projects}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         {currentView === 'project' && activeProject && (
-          <ProjectDashboard 
-            projectId={activeProject} 
+          <ProjectDashboard
+            projectId={activeProject}
             projectName={projectName}
             onBackClick={handleBackToProjects}
           />
         )}
-        {currentView === 'learning' && showSyllabus && (
-          <Syllabus 
-            category="React Development" 
-            categoryIcon={<BookOpen size={24} />} 
-            categoryColor="bg-blue-50 text-blue-500" 
-            onLessonClick={handleLessonClick}
-            onBackClick={() => handleNavItemClick('dashboard')}
+        {currentView === 'learning' && !showSyllabus && (
+          <LearningModule
+            onCardClick={handleCardClick}
+            onModuleSelect={handleModuleSelect}
           />
         )}
-        {currentView === 'learning' && !showSyllabus && (
-          <LearningModule onCardClick={handleCardClick} />
+        {currentView === 'learning' && showSyllabus && selectedModule && (
+          <Syllabus
+            category={selectedModule} // Pass selected module as category
+            categoryIcon={<BookOpen size={24} />}
+            categoryColor="bg-blue-50 text-blue-500"
+            onLessonClick={handleLessonClick}
+            onBackClick={handleBackToModules} // Navigate back to LearningModule
+          />
         )}
         {currentView === 'chat' && (
           <ChatInterface
-            category="Your Category"
+            category={selectedModule || "Your Category"}
             categoryIcon={<BookOpen size={24} />}
             categoryColor="bg-blue-50 text-blue-500"
             initialQuestion={chatQuestion}
             selectedLesson={selectedLesson}
-            onBackClick={handleBackToSyllabus}
+            onBackClick={handleBackToModules} // Navigate back to LearningModule
             addNote={addNote}
             onNavigate={handleNavigate}
           />
         )}
-        {currentView === 'dashboard' && (
-          <DashboardView />
-        )}
+        {currentView === 'dashboard' && <DashboardView />}
         {currentView === 'assessment' && (
-          <Assessment 
+          <Assessment
             category="React Development"
             categoryIcon={<BookOpen size={24} />}
             categoryColor="bg-blue-50 text-blue-500"
@@ -219,7 +235,10 @@ const App = () => {
             {projects.length > 0 ? (
               <p className="mt-4">Select a project from the sidebar to view its details.</p>
             ) : (
-              <p className="mt-4">Click the + icon next to "Study Resources" in the sidebar to create your first project.</p>
+              <p className="mt-4">
+                Click the + icon next to "Study Resources" in the sidebar to create your first
+                project.
+              </p>
             )}
           </div>
         )}
@@ -229,10 +248,7 @@ const App = () => {
           </div>
         )}
         {currentView === 'quiz' && (
-          <QuizModal
-            assessment={selectedAssessment}
-            onBackClick={handleBackToAssessment}
-          />
+          <QuizModal assessment={selectedAssessment} onBackClick={handleBackToAssessment} />
         )}
       </div>
     </div>
