@@ -99,135 +99,179 @@ const ChatInterface = ({
     return new Blob([byteArray], { type: mimeType });
   };
 
-  const connectWebSocket = useCallback((attempt = 0) => {
-    if (
-      ws.current &&
-      [WebSocket.OPEN, WebSocket.CONNECTING].includes(ws.current.readyState)
-    ) {
-      console.log("WebSocket already open or connecting, attempt:", attempt);
-      return;
-    }
+  const connectWebSocket = useCallback(
+    (attempt = 0) => {
+      if (
+        ws.current &&
+        [WebSocket.OPEN, WebSocket.CONNECTING].includes(ws.current.readyState)
+      ) {
+        console.log("WebSocket already open or connecting, attempt:", attempt);
+        return;
+      }
 
-    const token = localStorage.getItem("authToken");
-    if (!token) {
-      console.error("No auth token found. Redirecting to login.");
-      setConnectionError("Please log in to continue.");
-      setTimeout(() => onNavigate?.("login"), 2000);
-      return;
-    }
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        console.error("No auth token found. Redirecting to login.");
+        setConnectionError("Please log in to continue.");
+        setTimeout(() => onNavigate?.("login"), 2000);
+        return;
+      }
 
-    ws.current = new WebSocket(`ws://localhost:8765/ws?token=${encodeURIComponent(token)}`);
-    let reconnectTimer = null;
+      ws.current = new WebSocket(
+        `ws://localhost:8765/ws?token=${encodeURIComponent(token)}`
+      );
+      let reconnectTimer = null;
 
-    ws.current.onopen = () => {
-      console.log("WebSocket connection opened, attempt:", attempt);
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      setConnectionError(null);
-    };
+      ws.current.onopen = () => {
+        console.log("WebSocket connection opened, attempt:", attempt);
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        setConnectionError(null);
+      };
 
-    ws.current.onmessage = async (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log("Received data from backend:", data);
+      ws.current.onmessage = async (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log("Received data from backend:", data);
+          if (data.audio) {
+            console.log("Processing voice response with audio");
+            stopRecognition();
 
-        if (data.error) {
-          console.error("Backend error:", data.error);
-          if (data.error.includes("Invalid token")) {
-            setConnectionError("Session expired. Please log in again.");
-            localStorage.removeItem("authToken");
-            setTimeout(() => onNavigate?.("login"), 2000);
-            return;
-          }
-        }
+            const audioBlob = base64ToBlob(data.audio, "audio/mp3");
+            const audioUrl = URL.createObjectURL(audioBlob);
 
-        const newMessage = {
-          type: "assistant",
-          content: data.text,
-          mode: data.mode,
-          quizOptions: data.quizOptions || null,
-        };
+            // Create new audio instance each time
+            const audio = new Audio(audioUrl);
+            audioRef.current = audio;
 
-        setMessages((prev) => [...prev, newMessage]);
+            // Play audio immediately
+            audio.play().catch((e) => {
+              console.error("Error playing audio:", e);
+              if (isVoiceModeActive) startRecognition();
+            });
 
-        const title =
-          data.responseType === "quiz"
-            ? `Quiz on "${data.question}"`
-            : `Explanation of "${data.question}"`;
-        setAccumulatedContent((prev) => {
-          const newContent =
-            prev + `\n\n## ${title}\n\n${data.detailed}\n\n---\n\n`;
-          setCanvasContent({
-            content: newContent,
-            contentType: "markdown",
-            title: "Conversation History",
-            language: "plaintext",
-          });
-          return newContent;
-        });
-
-        if (data.mode === "voice_query" && data.audio) {
-          console.log("Processing voice response with audio");
-          stopRecognition();
-          const audioBlob = base64ToBlob(data.audio, "audio/mp3");
-          const audioUrl = URL.createObjectURL(audioBlob);
-          audioRef.current = new Audio(audioUrl);
-          handleAudioEvents(audioRef.current);
-
-          audioTimeoutRef.current = setTimeout(() => {
-            if (isPlayingAudio) {
-              console.warn("Audio playback timeout");
+            // Set up audio event listeners
+            audio.addEventListener("ended", () => {
+              console.log("Audio ended");
               setIsPlayingAudio(false);
               if (isVoiceModeActive) startRecognition();
+            });
+
+            audio.addEventListener("error", (e) => {
+              console.error("Audio error:", e);
+              setIsPlayingAudio(false);
+              if (isVoiceModeActive) startRecognition();
+            });
+          }
+
+          if (data.error) {
+            console.error("Backend error:", data.error);
+            if (data.error.includes("Invalid token")) {
+              setConnectionError("Session expired. Please log in again.");
+              localStorage.removeItem("authToken");
+              setTimeout(() => onNavigate?.("login"), 2000);
+              return;
             }
-          }, 10000);
+          }
 
-          audioRef.current.play().catch((e) => {
-            console.error("Error playing audio:", e);
-            clearTimeout(audioTimeoutRef.current);
-            setIsPlayingAudio(false);
-            if (isVoiceModeActive) startRecognition();
+          const newMessage = {
+            type: "assistant",
+            content: data.text,
+            mode: data.mode,
+            quizOptions: data.quizOptions || null,
+          };
+
+          setMessages((prev) => [...prev, newMessage]);
+
+          const title =
+            data.responseType === "quiz"
+              ? `Quiz on "${data.question}"`
+              : `Explanation of "${data.question}"`;
+          setAccumulatedContent((prev) => {
+            const newContent =
+              prev + `\n\n## ${title}\n\n${data.detailed}\n\n---\n\n`;
+            setCanvasContent({
+              content: newContent,
+              contentType: "markdown",
+              title: "Conversation History",
+              language: "plaintext",
+            });
+            return newContent;
           });
+
+          if (data.mode === "voice_query" && data.audio) {
+            console.log("Processing voice response with audio");
+            stopRecognition();
+            const audioBlob = base64ToBlob(data.audio, "audio/mp3");
+            const audioUrl = URL.createObjectURL(audioBlob);
+            audioRef.current = new Audio(audioUrl);
+            handleAudioEvents(audioRef.current);
+
+            audioTimeoutRef.current = setTimeout(() => {
+              if (isPlayingAudio) {
+                console.warn("Audio playback timeout");
+                setIsPlayingAudio(false);
+                if (isVoiceModeActive) startRecognition();
+              }
+            }, 10000);
+
+            audioRef.current.play().catch((e) => {
+              console.error("Error playing audio:", e);
+              clearTimeout(audioTimeoutRef.current);
+              setIsPlayingAudio(false);
+              if (isVoiceModeActive) startRecognition();
+            });
+          }
+          setIsProcessing(false);
+          setShowCanvas(true);
+        } catch (e) {
+          console.error("Error processing WebSocket message:", e);
+          setConnectionError("Error processing server response.");
         }
-        setIsProcessing(false);
-        setShowCanvas(true);
-      } catch (e) {
-        console.error("Error processing WebSocket message:", e);
-        setConnectionError("Error processing server response.");
-      }
-    };
+      };
 
-    ws.current.onerror = (error) => {
-      console.error("WebSocket error:", error);
-      setConnectionError("Failed to connect to server. Please try again.");
-      if (
-        ![WebSocket.CLOSED, WebSocket.CLOSING].includes(ws.current?.readyState)
-      ) {
-        ws.current?.close();
-      }
-    };
+      ws.current.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        setConnectionError("Failed to connect to server. Please try again.");
+        if (
+          ![WebSocket.CLOSED, WebSocket.CLOSING].includes(
+            ws.current?.readyState
+          )
+        ) {
+          ws.current?.close();
+        }
+      };
 
-    ws.current.onclose = (event) => {
-      console.log("WebSocket connection closed:", event.code, event.reason);
-      if (event.code === 1006) {
-        console.error("Abnormal WebSocket closure. Possible server or network issue.");
-        setConnectionError("Connection lost. Attempting to reconnect...");
-      } else if (event.code === 1008 && event.reason.includes("Invalid token")) {
-        setConnectionError("Session expired. Please log in again.");
-        localStorage.removeItem("authToken");
-        setTimeout(() => onNavigate?.("login"), 2000);
-      } else if (attempt < MAX_RECONNECT_ATTEMPTS) {
-        console.log(`Reconnecting WebSocket, attempt ${attempt + 1}`);
-        reconnectTimer = setTimeout(
-          () => connectWebSocket(attempt + 1),
-          RECONNECT_DELAY
-        );
-      } else {
-        console.error("Max reconnection attempts reached.");
-        setConnectionError("Unable to connect to server. Please try again later.");
-        setTimeout(() => onNavigate?.("login"), 2000);
-      }
-    };
-  }, [onNavigate, isVoiceModeActive]);
+      ws.current.onclose = (event) => {
+        console.log("WebSocket connection closed:", event.code, event.reason);
+        if (event.code === 1006) {
+          console.error(
+            "Abnormal WebSocket closure. Possible server or network issue."
+          );
+          setConnectionError("Connection lost. Attempting to reconnect...");
+        } else if (
+          event.code === 1008 &&
+          event.reason.includes("Invalid token")
+        ) {
+          setConnectionError("Session expired. Please log in again.");
+          localStorage.removeItem("authToken");
+          setTimeout(() => onNavigate?.("login"), 2000);
+        } else if (attempt < MAX_RECONNECT_ATTEMPTS) {
+          console.log(`Reconnecting WebSocket, attempt ${attempt + 1}`);
+          reconnectTimer = setTimeout(
+            () => connectWebSocket(attempt + 1),
+            RECONNECT_DELAY
+          );
+        } else {
+          console.error("Max reconnection attempts reached.");
+          setConnectionError(
+            "Unable to connect to server. Please try again later."
+          );
+          setTimeout(() => onNavigate?.("login"), 2000);
+        }
+      };
+    },
+    [onNavigate, isVoiceModeActive]
+  );
 
   useEffect(() => {
     connectWebSocket();
@@ -313,7 +357,8 @@ const ChatInterface = ({
         const transcript =
           event.results[event.results.length - 1][0].transcript;
         console.log("Transcribed text:", transcript);
-        setInputText(transcript);
+        setInputText("");
+        handleSendMessage(transcript, true);
         setIsProcessing(true);
         setVoiceStatus("Processing...");
         if (ws.current && ws.current.readyState === WebSocket.OPEN) {
@@ -511,12 +556,12 @@ const ChatInterface = ({
     };
   }, [currentFrame, connectWebSocket]);
 
-  const handleSendMessage = (isVoice = false) => {
-    if (inputText.trim() === "" || !selectedOption) return;
+  const handleSendMessage = (text = inputText, isVoice = false) => {
+    if (text.trim() === "" || !selectedOption) return;
 
     const newMessage = {
       type: "user",
-      content: inputText,
+      content: text,
       mode: isVoice ? "voice" : "text",
     };
     const updatedMessages = [...messages, newMessage];
@@ -555,7 +600,9 @@ const ChatInterface = ({
     const isCorrect = selected.includes(correctAnswer) && selected.length === 1;
     const feedback = isCorrect
       ? "Correct! arr[2] is 30."
-      : `Incorrect. The correct answer is 30. You selected: ${selected.join(", ")}.`;
+      : `Incorrect. The correct answer is 30. You selected: ${selected.join(
+          ", "
+        )}.`;
 
     setMessages((prev) =>
       prev.map((msg, idx) =>
@@ -679,7 +726,9 @@ const ChatInterface = ({
       setShowCanvas(true);
       setExplainMode("chat");
     } else {
-      setConnectionError("Cannot start learning session. Server is unavailable.");
+      setConnectionError(
+        "Cannot start learning session. Server is unavailable."
+      );
       setTimeout(() => setConnectionError(null), 3000);
     }
   };
@@ -1119,7 +1168,10 @@ const ChatInterface = ({
               </div>
             )}
             <div className="flex items-center">
-              <div className="flex-1 bg-white rounded-full shadow-md border border-slate-200 px-3 py-1 flex items-center transition-all duration-200" style={{ maxWidth: "55%", margin: "0 auto" }}>
+              <div
+                className="flex-1 bg-white rounded-full shadow-md border border-slate-200 px-3 py-1 flex items-center transition-all duration-200"
+                style={{ maxWidth: "55%", margin: "0 auto" }}
+              >
                 <textarea
                   ref={inputRef}
                   className="flex-1 px-3 py-1.5 bg-transparent outline-none resize-none text-sm text-slate-700"
